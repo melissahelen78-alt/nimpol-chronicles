@@ -1,0 +1,2924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>NimpolXP — RPG Adventure HUD</title>
+  <style>
+    @font-face {
+      font-family: "OpenDyslexic";
+      src: url("https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Regular.woff") format("woff");
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "OpenDyslexic";
+      src: url("https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Bold.woff") format("woff");
+      font-weight: 700;
+      font-display: swap;
+    }
+
+    :root {
+      --gold: #e8c547;
+      --gold-dark: #a8841a;
+      --gold-light: #ffe98a;
+      --sapphire-0: #0a2848;
+      --sapphire-1: #123d6b;
+      --sapphire-2: #1a5088;
+      --sapphire-3: #2568a8;
+      --amethyst-0: #2a1450;
+      --amethyst-1: #3d1f6e;
+      --amethyst-2: #522a8a;
+      --amethyst-3: #6b38a8;
+      --parchment: #e8d4b0;
+      --parchment-dark: #c9b08a;
+      --readable: "OpenDyslexic", "Trebuchet MS", Verdana, Arial, sans-serif;
+      --wheel-a: #f39c12;
+      --wheel-b: #8e44ad;
+      --wheel-c: #16a085;
+      --wheel-d: #e74c3c;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100dvh;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: var(--readable);
+      line-height: 1.6;
+      letter-spacing: 0.03em;
+      color: #f5f5f5;
+      background:
+        repeating-linear-gradient(90deg, #1a1520 0, #1a1520 48px, #16111c 48px, #16111c 96px),
+        repeating-linear-gradient(0deg, #141018 0, #141018 24px, #100c14 24px, #100c14 48px),
+        #0e0a12;
+    }
+
+    /* ── 2-column shell ── */
+    .rpg-shell {
+      display: grid;
+      grid-template-columns: 33% 1fr;
+      gap: 14px;
+      height: 100dvh;
+      max-width: 1366px;
+      margin: 0 auto;
+      padding: 12px 14px;
+    }
+
+    @media (max-width: 820px) {
+      html, body { overflow: auto; height: auto; }
+      .rpg-shell { grid-template-columns: 1fr; height: auto; min-height: 100dvh; }
+    }
+
+    /* Gold frame mixin pattern */
+    .gold-frame {
+      border: 4px solid var(--gold-dark);
+      box-shadow:
+        inset 0 0 0 2px var(--gold),
+        inset 0 0 0 5px rgba(0,0,0,0.35),
+        0 6px 0 rgba(0,0,0,0.45);
+    }
+
+    .banner-title {
+      font-family: var(--readable);
+      font-weight: 700;
+      font-size: clamp(14px, 1.5vw, 17px);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      text-align: center;
+      padding: 8px 12px;
+      color: var(--gold-light);
+      text-shadow: 1px 1px 0 #000;
+      background: linear-gradient(180deg, rgba(255,220,100,0.25) 0%, rgba(0,0,0,0.2) 100%);
+      border-bottom: 2px solid var(--gold-dark);
+    }
+    
+ /* ═══ COLUMN 1 — SAPPHIRE PROFILE ═══ */
+
+ .col-profile {
+display: flex;
+flex-direction: column;
+gap: 10px;
+min-height: 0;
+background:
+  linear-gradient(180deg, var(--sapphire-2) 0%, var(--sapphire-1) 40%, var(--sapphire-0) 100%);
+border-radius: 8px;
+padding: 10px;
+position: relative;
+overflow: hidden;
+}
+
+.col-profile.gold-frame { border-radius: 8px; }
+
+.col-profile::before {
+content: "";
+position: absolute;
+inset: 0;
+background: repeating-linear-gradient(
+  135deg,
+  transparent 0, transparent 8px,
+  rgba(255,255,255,0.02) 8px, rgba(255,255,255,0.02) 16px
+  );
+pointer-events: none;
+}
+
+.profile-panel {
+position: relative;
+z-index: 1;
+flex: 1;
+display: flex;
+flex-direction: column;
+gap: 10px;
+min-height: 0;
+}
+
+.profile-identity {
+display: grid;
+grid-template-columns: 115px 1fr;
+gap: 10px;
+align-items: center;
+padding: 8px;
+background: rgba(0,0,0,0.2);
+border: 2px solid rgba(232,197,71,0.4);
+border-radius: 6px;
+}
+
+.avatar-frame {
+width: 120px;
+height: 120px;
+display: flex;
+place-items: center;
+font-size: 44px;
+background: linear-gradient(180deg, #2a5a8a, #1a3d66);
+border: 3px solid var(--gold);
+box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 3px 0 #0a2040;
+border-radius: 4px;
+overflow: hidden;
+}
+
+.avatar-frame img {
+width: 100%;
+height: 100%;
+object-fit: contain;
+}
+
+.name-plate {
+font-family: var(--readable);
+font-size: clamp(20px, 2.2vw, 26px);
+color: #e8f0fa;      
+font-weight: bold;
+text-shadow:
+  -1px -1px 0 #000,
+  1px -1px 0 #000,
+  -1px 1px 0 #000,
+  1px 1px 0 #000,
+  0px 2px 4px rgba(0,0,0,0.8);color: #fff;
+padding: 6px 15px;
+background: rgba(0,0,0,0.35);
+border: 3px solid var(--gold);
+border-radius: 8px;
+margin-bottom: 0px;
+}
+
+.rank-ribbon {
+display: flex;
+justify-content: center;
+padding-top: 6px;
+padding_bottom: 8px;
+box-sizing: border-box;
+height: 60px;
+margin-left: 10%;
+margin-right: 10%;
+font-family: var(--readable);
+font-size: clamp(16px, 1.3vw, 20px);
+color: #e8f0fa;      
+font-weight: bold;
+text-shadow:
+  -1px -1px 0 #000,
+  1px -1px 0 #000,
+  -1px 1px 0 #000,
+  1px 1px 0 #000,
+  0px 2px 4px rgba(0,0,0,0.8);
+background: linear-gradient(180deg, var(--gold-dark) 0%, var(--gold) 60%, var(--gold-light) 100%);
+box-shadow: 0 0 8px rgba(0,0,0,0.6), inset 0 0 8px rgba(0,0,0,0.6);
+clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
+} 
+
+    /* Inventory button */
+    .btn-inventory {
+      margin-top: 15px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 18px;
+      position: relative;
+      width: 100%;
+      height: 72px;
+      padding: 0 20px;
+      cursor: pointer;
+      font-family: var(--readable);
+      font-weight: 800;
+      font-size: clamp(16px, 1.5vw, 20px);
+      color: #e8f0fa;
+      letter-spacing: 1px;
+      text-shadow: 0 2px 3px #000000;
+      background: linear-gradient(to bottom, #1d4380 0%, #0d2142 100%);
+      border: 3px solid var(--gold);
+      border-top-color: var(--gold-light);
+      border-bottom-color: var(--gold-dark);
+      border-radius: 6px;
+      box-shadow: 
+        0 4px 0 #071224,
+        0 6px 10px rgba(0, 0, 0, 0.5),
+        inset 0 1px 1px rgba(255, 255, 255, 0.3);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+
+    .btn-inventory .btn-icon {
+    width: 112px;
+    height: 112px;
+    object-fit: contain;
+    filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.6));
+    }
+    
+    .btn-inventory:hover {
+      background: linear-gradient(to bottom, #24529c 0%, #112b54 100%);
+      border-color: #d1b45c;
+      border-top-color: #fff099;
+    }
+
+    .btn-inventory:active {
+      transform: translateY(3px);
+      box-shadow: 
+        0 1px 0 #071224,
+        0 2px 4px rgba(0, 0, 0, 0.6),
+        inset 0 2px 5px rgba(0, 0, 0, 0.5);
+    }
+
+    /* XP */
+    .xp-block { padding: 0 4px; }
+
+    .xp-label {
+      font-size: clamp(18px, 1.4vw, 22px);
+      margin-bottom: 2px;  
+      color: #e8f0fa;      
+      font-weight: bold;
+      text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000,
+        0px 2px 4px rgba(0,0,0,0.8);
+    }
+
+    .xp-track {
+      grid-column: 2;
+      grid-row: 1;
+      z-index: 1;
+      height: 60px;
+      background: #0a1830;
+      border: 3px solid var(--gold);
+      border-radius: 18px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    }
+
+    .xp-track::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      border-radius: 18px;
+      z-index: 4;
+      pointer-events: none;
+      box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.75);
+    }
+
+    .xp-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--gold-dark), var(--gold), var(--gold-light));
+      border-radius: 14px;
+      box-shadow: 0 0 12px var(--gold);
+      transition: width 0.08s linear;
+      position: relative;
+      background-size: 100% 100%;
+    }
+
+    .xp-fill::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 3;
+      pointer-events: none;
+      border-radius: 16px;
+      mix-blend-mode: overlay;
+      background-image: linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.6) 0%,
+        rgba(255, 255, 255, 0) 50%,
+        rgba(0, 0, 0, 0.4) 100%
+      );
+    }
+
+    .xp-text {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: left;
+      font-family: var(--readable);
+      font-weight: 700;
+      font-size: clamp(16px, 1.6vw, 20px);
+      color: #e8f0fa;      
+      font-weight: bold;
+      text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000,
+        0px 2px 4px rgba(0,0,0,0.8);
+      padding-left: 25px;
+    }
+
+    /* Attributes */
+    .attrs-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 2px 12px 2px;
+    }
+
+    .attr-row {
+      display: grid;
+      /* Column 1: Diamond icon (28px). Column 2: The rest of the space (1fr) */
+      grid-template-columns: 14px 1fr; 
+      gap: 0px;
+      align-items: center;
+      position: relative; /* Keeps positioned child elements contained */
+      margin-bottom: 2px;
+    }
+
+    .diamond {
+      grid-column: 1;
+      grid-row: 1;
+      z-index: 3;
+      width: 32px;
+      height: 32px;
+      transform: rotate(45deg);
+      position: relative;
+      border: 3px solid var(--gold);
+      box-shadow: 0 0 8px rgba(0,0,0,0.6), inset 0 0 8px rgba(0,0,0,0.6);
+      margin-left: -2px;
+    }
+
+    .diamond--mana       { background: linear-gradient(135deg, #3B3DA1, #9b59b6) !important; color: #9b59b6; }
+    .diamond--intellect  { background: linear-gradient(135deg, #0E78A2, #24E6DD) !important; color: #24E6DD; }
+    .diamond--lore       { background: linear-gradient(135deg, #97510F, #a68a24) !important; color: #a68a24; }
+    .diamond--perception { background: linear-gradient(135deg, #9B0609, #b86214) !important; color: #b86214; }
+    .diamond--charisma   { background: linear-gradient(135deg, #9016A5, #C731C4) !important; color: #C731C4; }
+    .diamond--stamina    { background: linear-gradient(135deg, #146132, #1b8546) !important; color: #146132; }
+
+    
+    /* Create a wrapper wrapper around your text and your track in the HTML, or target them directly if they share the row */
+    .attr-label {
+      grid-column: 2;
+      grid-row: 1;
+      z-index: 2; /* Forces the text to float on top of the bar */
+      font-size: clamp(16px, 1.6vw, 20px);
+      color: #e8f0fa;
+      white-space: nowrap;
+      align-items: center;
+      padding-left: 30px; /* Insets the text slightly from the edge of the bar */
+      pointer-events: none; /* Allows clicks to pass through the text if needed */
+      font-weight: bold;
+      text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000,
+        0px 2px 4px rgba(0,0,0,0.8);
+    }
+
+    .attr-bar-track {
+      grid-column: 2;
+      grid-row: 1;
+      z-index: 1;
+      height: 40px;
+      background: #0a1830;
+      border: 3px solid var(--gold);
+      border-radius: 14px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    }
+
+    .attr-bar-track::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      border-radius: 14px;
+      z-index: 4;
+      pointer-events: none;
+      box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.75);
+    }
+
+    .attr-bar-fill {
+      height: 100%;
+      border-radius: 10px;
+      box-shadow: 0 0 12px currentColor;
+      transition: width 0.08s linear;
+      position: relative;
+      background-size: 100% 100%;
+    }
+
+    .attr-bar-fill::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 3;
+      pointer-events: none;
+      border-radius: 14px;
+      mix-blend-mode: overlay;
+      background-image: linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.6) 0%,
+        rgba(255, 255, 255, 0) 50%,
+        rgba(0, 0, 0, 0.4) 100%
+      );
+    }
+
+    .bar-mana       { background: linear-gradient(90deg, #3B3DA1, #9b59b6) !important; color: #9b59b6; }
+    .bar-intellect  { background: linear-gradient(90deg, #0E78A2, #24E6DD) !important; color: #24E6DD; }
+    .bar-lore       { background: linear-gradient(90deg, #97510F, #a68a24) !important; color: #a68a24; }
+    .bar-perception { background: linear-gradient(90deg, #9B0609, #b86214) !important; color: #944d10; }
+    .bar-charisma   { background: linear-gradient(90deg, #9016A5, #C731C4) !important; color: #C731C4; }
+    .bar-stamina    { background: linear-gradient(90deg, #146132, #1b8546) !important; color: #146132; }
+
+    /* ═══ COLUMN 2 — AMETHYST ADVENTURE HUB (mirrors col-profile aesthetic) ═══ */
+    .col-adventure {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+      background:
+        linear-gradient(180deg, var(--amethyst-2) 0%, var(--amethyst-1) 40%, var(--amethyst-0) 100%);
+      border-radius: 8px;
+      padding: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .col-adventure.gold-frame { border-radius: 8px; }
+
+    .col-adventure::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        135deg,
+        transparent 0, transparent 8px,
+        rgba(255,255,255,0.02) 8px, rgba(255,255,255,0.02) 16px
+      );
+      pointer-events: none;
+    }
+
+    .rune-border {
+      position: absolute;
+      top: 48px;
+      bottom: 48px;
+      width: 22px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-evenly;
+      align-items: center;
+      font-size: 14px;
+      color: rgba(232,197,71,0.55);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .rune-border--left  { left: 4px; }
+    .rune-border--right { right: 4px; }
+
+    .adventure-inner {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+      margin: 0 18px;
+    }
+
+    /* Dialogue panel — matches .profile-identity + .name-plate */
+    .parchment-scroll {
+      flex-shrink: 0;
+      padding: 8px;
+      background: rgba(0,0,0,0.2);
+      border: 2px solid rgba(232,197,71,0.4);
+      border-radius: 6px;
+      position: relative;
+    }
+
+    .parchment-scroll::before,
+    .parchment-scroll::after {
+      display: none;
+    }
+
+    .text-box-wrap {
+      position: relative;
+    }
+
+    .speak-btn {
+      width: 48px;
+      height: 48px;
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      flex-shrink: 0;
+      color: #e8f0fa;
+      background: linear-gradient(to bottom, #1d4380 0%, #0d2142 100%);
+      border: 3px solid var(--gold);
+      border-top-color: var(--gold-light);
+      border-bottom-color: var(--gold-dark);
+      border-radius: 6px;
+      box-shadow:
+        0 3px 0 #071224,
+        inset 0 1px 1px rgba(255, 255, 255, 0.25);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+
+    .speak-btn--corner {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      z-index: 2;
+    }
+
+    .text-box-wrap .dialogue-text,
+    .text-box-wrap .knowledge-body {
+      padding-right: 58px;
+    }
+
+    .speak-btn:hover {
+      background: linear-gradient(to bottom, #24529c 0%, #112b54 100%);
+      border-color: #d1b45c;
+      border-top-color: #fff099;
+    }
+
+    .speak-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #071224, inset 0 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    .speak-btn.speaking {
+      box-shadow: 0 0 0 3px rgba(232, 197, 71, 0.55), 0 3px 0 #071224;
+    }
+
+    .dialogue-text {
+      min-height: 180px;
+      padding: 10px 15px;
+      font-family: var(--readable);
+      font-size: clamp(16px, 1.55vw, 20px);
+      font-weight: bold;
+      line-height: 1.6;
+      letter-spacing: 0.03em;
+      color: #e8f0fa;
+      background: rgba(0,0,0,0.35);
+      border: 3px solid var(--gold);
+      border-radius: 8px;
+      text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000,
+        0px 2px 4px rgba(0,0,0,0.8);
+    }
+
+    /* Action buttons — matches .btn-inventory tactile pattern */
+    .action-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 700px) {
+      .action-row { grid-template-columns: 1fr; }
+    }
+
+    .btn-emerald {
+      min-height: 52px;
+      padding: 10px 8px;
+      cursor: pointer;
+      font-family: var(--readable);
+      font-weight: 800;
+      font-size: clamp(14px, 1.3vw, 17px);
+      line-height: 1.6;
+      letter-spacing: 0.5px;
+      color: #e8f0fa;
+      text-shadow: 0 2px 3px #000000;
+      background: linear-gradient(to bottom, #1BB23E 0%, #026314 100%);
+      border: 3px solid var(--gold);
+      border-top-color: var(--gold-light);
+      border-bottom-color: var(--gold-dark);
+      border-radius: 6px;
+      box-shadow:
+        0 4px 0 #071224,
+        0 6px 10px rgba(0, 0, 0, 0.5),
+        inset 0 1px 1px rgba(255, 255, 255, 0.3);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+
+    .btn-emerald:hover {
+      background: #1BB23E;
+      border-color: #d1b45c;
+      border-top-color: #fff099;
+    }
+
+    .btn-emerald:active {
+      transform: translateY(3px);
+      box-shadow:
+        0 1px 0 #071224,
+        0 2px 4px rgba(0, 0, 0, 0.6),
+        inset 0 2px 5px rgba(0, 0, 0, 0.5);
+    }
+
+    .btn-skip {
+      display: block;
+      width: 100%;
+      max-width: 320px;
+      margin: 0 auto;
+      min-height: 48px;
+      padding: 0 20px;
+      cursor: pointer;
+      font-family: var(--readable);
+      font-weight: 800;
+      font-size: clamp(14px, 1.4vw, 17px);
+      letter-spacing: 0.5px;
+      color: #e8f0fa;
+      text-shadow: 0 2px 3px #000000;
+      background: linear-gradient(to bottom, #4a5364 0%, #252b38 100%);
+      border: 3px solid var(--gold);
+      border-top-color: var(--gold-light);
+      border-bottom-color: var(--gold-dark);
+      border-radius: 6px;
+      box-shadow:
+        0 4px 0 #071224,
+        0 6px 10px rgba(0, 0, 0, 0.5),
+        inset 0 1px 1px rgba(255, 255, 255, 0.3);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+
+    .btn-skip:hover {
+      background: #4a5364;
+      border-color: #d1b45c;
+      border-top-color: #fff099;
+    }
+
+    .btn-skip:active {
+      transform: translateY(3px);
+      box-shadow:
+        0 1px 0 #071224,
+        0 2px 4px rgba(0, 0, 0, 0.6),
+        inset 0 2px 5px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Discovery scrolls */
+    .discovery-section {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .discovery-panel {
+      flex: 1;
+      min-height: 0;
+      padding: 8px;
+      background: rgba(0,0,0,0.2);
+      border: 2px solid rgba(232,197,71,0.4);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .discovery-subtitle {
+      font-family: var(--readable);
+      font-weight: bold;
+      font-size: clamp(16px, 1.4vw, 20px);
+      color: #e8f0fa;
+      text-align: center;
+      letter-spacing: 0.03em;
+      text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000,
+        0px 2px 4px rgba(0,0,0,0.8);
+    }
+
+    .knowledge-body {
+      flex: 1;
+      padding: 10px 15px;
+      font-family: var(--readable);
+      font-size: clamp(15px, 1.5vw, 18px);
+      font-weight: bold;
+      line-height: 1.6;
+      letter-spacing: 0.03em;
+      color: #e8f0fa;
+      background: rgba(0,0,0,0.35);
+      border: 3px solid var(--gold);
+      border-radius: 8px;
+      overflow-y: auto;
+      text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000,
+        0px 2px 4px rgba(0,0,0,0.8);
+    }
+
+    .knowledge-body.pulse {
+      animation: knowledgePulse 0.8s ease;
+    }
+
+    @keyframes knowledgePulse {
+      0%, 100% { box-shadow: none; }
+      50% { box-shadow: 0 0 0 3px var(--gold-light), 0 0 12px rgba(232,197,71,0.45); }
+    }
+
+    .btn-cyan {
+      width: 100%;
+      min-height: 52px;
+      padding: 0 20px;
+      cursor: pointer;
+      font-family: var(--readable);
+      font-weight: 800;
+      font-size: clamp(14px, 1.4vw, 17px);
+      letter-spacing: 0.5px;
+      color: #e8f0fa;
+      text-shadow: 0 2px 3px #000000;
+      background: linear-gradient(to bottom, #246a96 0%, #113350 100%);
+      border: 3px solid var(--gold);
+      border-top-color: var(--gold-light);
+      border-bottom-color: var(--gold-dark);
+      border-radius: 6px;
+      box-shadow:
+        0 4px 0 #071224,
+        0 6px 10px rgba(0, 0, 0, 0.5),
+        inset 0 1px 1px rgba(255, 255, 255, 0.3);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+
+    .btn-cyan:hover {
+      background: #246a96;
+      border-color: #d1b45c;
+      border-top-color: #fff099;
+    }
+
+    .btn-cyan:active {
+      transform: translateY(3px);
+      box-shadow:
+        0 1px 0 #071224,
+        0 2px 4px rgba(0, 0, 0, 0.6),
+        inset 0 2px 5px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Mystery wheel — inventory frame + rainbow fill */
+    .btn-wheel {
+      flex-shrink: 0;
+      width: 100%;
+      min-height: 56px;
+      padding: 0 20px;
+      cursor: pointer;
+      font-family: var(--readable);
+      font-weight: 800;
+      font-size: clamp(15px, 1.5vw, 19px);
+      letter-spacing: 1px;
+      color: #e8f0fa;
+      text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000,
+        0px 2px 4px rgba(0,0,0,0.8);
+      border: 3px solid var(--gold);
+      border-top-color: var(--gold-light);
+      border-bottom-color: var(--gold-dark);
+      border-radius: 6px;
+      background:
+        linear-gradient(
+          90deg,
+          #e74c3c 0%, #f39c12 20%, #f1c40f 40%,
+          #2ecc71 60%, #3498db 80%, #9b59b6 100%
+        );
+      box-shadow:
+        0 4px 0 #071224,
+        0 6px 10px rgba(0, 0, 0, 0.5),
+        inset 0 1px 1px rgba(255, 255, 255, 0.3),
+        0 0 18px rgba(155, 89, 182, 0.35);
+      animation: wheelGlow 2s ease-in-out infinite alternate;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+
+    .btn-wheel:hover {
+      border-color: #d1b45c;
+      border-top-color: #fff099;
+      filter: brighness(0.9);
+    }
+
+    .btn-wheel:active {
+      transform: translateY(3px);
+      animation: none;
+      box-shadow:
+        0 1px 0 #071224,
+        0 2px 4px rgba(0, 0, 0, 0.6),
+        inset 0 2px 5px rgba(0, 0, 0, 0.5);
+    }
+
+    @keyframes wheelGlow {
+      from { filter: brightness(1); }
+      to   { filter: brightness(1.08); box-shadow: 0 4px 0 #071224, 0 6px 10px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.3), 0 0 26px rgba(155,89,182,0.55); }
+    }
+
+    .wheel-status {
+      text-align: center;
+      font-family: var(--readable);
+      font-weight: bold;
+      font-size: clamp(14px, 1.3vw, 17px);
+      color: #e8f0fa;
+      flex-shrink: 0;
+      text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000,
+        0px 2px 4px rgba(0,0,0,0.8);
+    }
+
+    /* Quest drawer */
+    .quest-drawer {
+      display: none;
+      flex-shrink: 0;
+      max-height: 160px;
+      overflow-y: auto;
+      padding: 8px;
+      background: rgba(0,0,0,0.2);
+      border: 2px solid rgba(232,197,71,0.4);
+      border-radius: 6px;
+    }
+
+    .quest-drawer.open { display: block; }
+
+    .quest-mini-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    @media (max-width: 700px) {
+      .quest-mini-grid { grid-template-columns: 1fr; }
+    }
+
+    .quest-mini {
+      padding: 8px 10px;
+      font-family: var(--readable);
+      font-size: clamp(12px, 1.2vw, 14px);
+      font-weight: bold;
+      line-height: 1.6;
+      color: #e8f0fa;
+      background: rgba(0,0,0,0.35);
+      border: 3px solid var(--gold);
+      border-radius: 8px;
+      text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000,
+        0px 2px 4px rgba(0,0,0,0.8);
+    }
+
+    .quest-mini.claimed { opacity: 0.45; filter: grayscale(0.8); }
+    .quest-mini.highlight {
+      border-color: var(--gold-light);
+      box-shadow: 0 0 10px rgba(232,197,71,0.45);
+    }
+
+    .quest-mini-title {
+      font-weight: bold;
+      color: #e8f0fa;
+      margin-bottom: 4px;
+    }
+
+    .quest-mini-actions {
+      display: flex;
+      gap: 4px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+
+    .mini-btn {
+      flex: 1;
+      min-height: 34px;
+      padding: 4px 6px;
+      cursor: pointer;
+      font-family: var(--readable);
+      font-weight: 800;
+      font-size: 11px;
+      letter-spacing: 0.3px;
+      color: #e8f0fa;
+      text-shadow: 0 2px 3px #000000;
+      background: linear-gradient(to bottom, #1d4380 0%, #0d2142 100%);
+      border: 2px solid var(--gold);
+      border-top-color: var(--gold-light);
+      border-bottom-color: var(--gold-dark);
+      border-radius: 4px;
+      box-shadow:
+        0 3px 0 #071224,
+        inset 0 1px 1px rgba(255, 255, 255, 0.25);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+
+    .mini-btn:hover {
+      background: linear-gradient(to bottom, #24529c 0%, #112b54 100%);
+    }
+
+    .mini-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #071224, inset 0 2px 4px rgba(0, 0, 0, 0.5);
+    }
+
+    .mini-btn--claim {
+      background: linear-gradient(to bottom, #1d6b40 0%, #0d3220 100%);
+    }
+
+    .mini-btn--claim:hover {
+      background: linear-gradient(to bottom, #24804e 0%, #113d28 100%);
+    }
+
+    .speak-mini {
+      width: 34px;
+      height: 34px;
+      font-size: 14px;
+      padding: 0;
+      flex: 0;
+    }
+
+    /* Modals */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 6, 16, 0.82);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 100;
+      backdrop-filter: blur(4px);
+    }
+
+    .overlay.open { display: flex; }
+
+    .modal-gold {
+      width: min(92vw, 560px);
+      background: linear-gradient(180deg, var(--amethyst-2), var(--amethyst-0));
+      border: 4px solid var(--gold-dark);
+      box-shadow: inset 0 0 0 2px var(--gold), 0 12px 32px rgba(0,0,0,0.5);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .modal-title {
+      font-family: var(--readable);
+      font-weight: 700;
+      font-size: clamp(14px, 1.5vw, 17px);
+      color: var(--gold-light);
+      text-align: center;
+      margin-bottom: 12px;
+      letter-spacing: 0.05em;
+    }
+
+    .wheel-wrap {
+      position: relative;
+      width: min(70vw, 360px);
+      height: min(70vw, 360px);
+      margin: 0 auto 12px;
+    }
+
+    .wheel-pointer {
+      position: absolute;
+      left: 50%;
+      top: -4px;
+      transform: translateX(-50%);
+      border-left: 16px solid transparent;
+      border-right: 16px solid transparent;
+      border-top: 28px solid var(--gold);
+      filter: drop-shadow(1px 2px 0 #000);
+      z-index: 3;
+    }
+
+    #wheelCanvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 4px solid var(--gold-dark);
+      box-shadow: inset 0 0 0 3px var(--gold);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .modal-btn {
+      min-height: 44px;
+      min-width: 130px;
+      padding: 10px 16px;
+      font-family: var(--readable);
+      font-weight: 700;
+      font-size: 14px;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      background: linear-gradient(180deg, #6a7488, #353d4a);
+      border-bottom: 3px solid #222830;
+      box-shadow: 0 4px 0 #222830;
+    }
+
+    .modal-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #222830; }
+
+    .modal-btn--gold {
+      color: #3a2200;
+      background: linear-gradient(180deg, #ffe566, #c9a020);
+      border-bottom-color: #8a6910;
+      box-shadow: 0 4px 0 #8a6910;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 20px;
+      transform: translate(-50%, 60px);
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      z-index: 200;
+      padding: 12px 20px;
+      font-family: var(--readable);
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--gold-light);
+      background: linear-gradient(180deg, var(--amethyst-2), var(--amethyst-0));
+      border: 3px solid var(--gold-dark);
+      box-shadow: 0 4px 0 rgba(0,0,0,0.4);
+      border-radius: 6px;
+      pointer-events: none;
+    }
+
+    .toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+    /* Auth sign-in */
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 6, 16, 0.88);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 150;
+      backdrop-filter: blur(6px);
+    }
+
+    .auth-overlay.open { display: flex; }
+
+    .auth-panel {
+      width: min(92vw, 420px);
+      background: linear-gradient(180deg, var(--sapphire-2), var(--sapphire-0));
+      border: 4px solid var(--gold-dark);
+      box-shadow: inset 0 0 0 2px var(--gold), 0 12px 32px rgba(0,0,0,0.55);
+      border-radius: 8px;
+      padding: 22px 20px 20px;
+    }
+
+    .auth-title {
+      font-family: var(--readable);
+      font-weight: 700;
+      font-size: clamp(18px, 2.2vw, 22px);
+      color: var(--gold-light);
+      text-align: center;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+
+    .auth-subtitle {
+      font-family: var(--readable);
+      font-size: 14px;
+      color: #c8d4e8;
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .auth-label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-family: var(--readable);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.04em;
+    }
+
+    .auth-input {
+      font-family: var(--readable);
+      font-size: 16px;
+      padding: 12px 14px;
+      border: 2px solid var(--gold-dark);
+      border-radius: 6px;
+      background: rgba(10, 20, 40, 0.85);
+      color: #f5f5f5;
+      outline: none;
+    }
+
+    .auth-input:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 2px rgba(232, 197, 71, 0.35);
+    }
+
+    .auth-error {
+      font-family: var(--readable);
+      font-size: 13px;
+      color: #ffb4b4;
+      background: rgba(120, 20, 20, 0.35);
+      border: 1px solid rgba(255, 120, 120, 0.45);
+      border-radius: 5px;
+      padding: 8px 10px;
+      margin: 0;
+    }
+
+    .auth-submit {
+      margin-top: 4px;
+      padding: 14px 18px;
+      font-family: var(--readable);
+      font-weight: 700;
+      font-size: 16px;
+      color: #3a2200;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      background: linear-gradient(180deg, #ffe566, #c9a020);
+      border-bottom: 3px solid #8a6910;
+      box-shadow: 0 4px 0 #8a6910;
+    }
+
+    .auth-submit:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 #8a6910;
+    }
+
+    .auth-submit:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+
+    .auth-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: rgba(10, 30, 60, 0.55);
+      border: 1px solid rgba(232, 197, 71, 0.35);
+      font-family: var(--readable);
+      font-size: 12px;
+      color: #c8dce8;
+    }
+
+    .auth-sync-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #5dffa8;
+      box-shadow: 0 0 6px rgba(93, 255, 168, 0.7);
+      flex-shrink: 0;
+    }
+
+    .auth-status-text {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .auth-signout {
+      flex-shrink: 0;
+      padding: 4px 8px;
+      font-family: var(--readable);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--gold-light);
+      background: transparent;
+      border: 1px solid rgba(232, 197, 71, 0.45);
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .auth-signout:hover { background: rgba(232, 197, 71, 0.12); }
+
+    /* Inventory modal */
+    .inventory-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 10px;
+      max-height: 50vh;
+      overflow-y: auto;
+      padding: 4px;
+    }
+
+    .inventory-card {
+      background: rgba(10, 30, 60, 0.65);
+      border: 2px solid rgba(232, 197, 71, 0.35);
+      border-radius: 8px;
+      padding: 10px 8px;
+      text-align: center;
+      position: relative;
+    }
+
+    .inventory-card--uncommon { border-color: #5dffa8; }
+    .inventory-card--rare { border-color: #6eb5ff; }
+    .inventory-card--epic { border-color: #c77dff; }
+    .inventory-card--legendary { border-color: #ffd76f; box-shadow: 0 0 12px rgba(255, 215, 111, 0.35); }
+
+    .inventory-card-icon { font-size: 28px; margin-bottom: 4px; }
+    .inventory-card-name { font-size: 11px; font-weight: 700; color: var(--gold-light); line-height: 1.3; }
+    .inventory-card-rarity { font-size: 10px; text-transform: uppercase; opacity: 0.75; margin-top: 2px; }
+    .inventory-card-qty {
+      position: absolute; top: 4px; right: 6px;
+      font-size: 11px; font-weight: 700; color: var(--gold);
+    }
+
+    .inventory-empty {
+      text-align: center;
+      padding: 24px;
+      color: #c8dce8;
+      font-size: 14px;
+    }
+
+    /* PIN modal */
+    .pin-display {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .pin-dot {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      border: 2px solid var(--gold);
+      background: transparent;
+    }
+
+    .pin-dot.filled { background: var(--gold-light); }
+
+    .pin-pad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      max-width: 220px;
+      margin: 0 auto;
+    }
+
+    .pin-key {
+      padding: 14px;
+      font-family: var(--readable);
+      font-size: 18px;
+      font-weight: 700;
+      color: #3a2200;
+      background: linear-gradient(180deg, #ffe566, #c9a020);
+      border: none;
+      border-bottom: 3px solid #8a6910;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .pin-key:active { transform: translateY(2px); }
+
+    .quest-tool-tag {
+      font-size: 11px;
+      opacity: 0.85;
+      margin-top: 2px;
+    }
+
+    .quest-timer {
+      font-size: 12px;
+      color: var(--gold-light);
+      font-weight: 700;
+      margin-top: 4px;
+    }
+
+    /* Subject picker modal */
+    .subject-picker-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 10px;
+      max-height: 40vh;
+      overflow-y: auto;
+      padding: 4px;
+    }
+
+    .subject-picker-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 16px 10px;
+      font-family: var(--readable);
+      font-size: 14px;
+      font-weight: 700;
+      color: #3a2200;
+      background: linear-gradient(180deg, #ffe566, #c9a020);
+      border: none;
+      border-bottom: 3px solid #8a6910;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .subject-picker-btn:active { transform: translateY(2px); }
+
+    .subject-picker-icon { font-size: 28px; line-height: 1; }
+  </style>
+</head>
+<body>
+
+  <div class="auth-overlay" id="authOverlay" aria-hidden="true">
+    <div class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <h2 class="auth-title" id="authTitle">Enter the Realm</h2>
+      <p class="auth-subtitle">Sign in once — your adventure syncs to the cloud.</p>
+      <form class="auth-form" id="authForm">
+        <label class="auth-label" for="authEmail">
+          Email
+          <input class="auth-input" type="email" id="authEmail" name="email" autocomplete="username" required />
+        </label>
+        <label class="auth-label" for="authPassword">
+          Password
+          <input class="auth-input" type="password" id="authPassword" name="password" autocomplete="current-password" required />
+        </label>
+        <p class="auth-error" id="authError" hidden></p>
+        <button class="auth-submit" id="authSubmitBtn" type="submit">Sign In</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="rpg-shell">
+    <!-- ══ COLUMN 1: PLAYER PROFILE ══ -->
+    <aside class="col-profile gold-frame" aria-label="Player Profile">
+      <div class="banner-title">Player Profile</div>
+      <div class="profile-panel">
+        <div class="profile-identity">
+          <div class="avatar-frame">
+            <!-- Points directly to your image asset -->
+            <img src="images/Nimpol.png" alt="">
+          </div>
+          <div>
+            <div class="name-plate" id="playerName">…</div>
+            <div class="rank-ribbon" id="playerRank">…</div>
+          </div>
+        </div>
+
+        <button class="btn-inventory" id="inventoryBtn" type="button">
+          <img src="images/chest.png" alt="Chest" class="btn-icon">
+          <span>INVENTORY</span>
+        </button>
+
+        <div class="xp-block">
+          <div class="xp-label">Experience</div>
+          <div class="xp-track" role="progressbar" aria-valuemin="0" aria-valuemax="2000" aria-valuenow="1448" id="xpTrack">
+            <div class="xp-fill" id="xpFill"></div>
+            <div class="xp-text" id="xpText">1,448 / 2,000 XP</div>
+          </div>
+        </div>
+        
+        <div class="xp-label" style="margin-top: 16px; margin-bottom: 8px;">Attributes</div>
+        
+        <div class="attrs-list" id="attrList"></div>
+
+        <div class="auth-status" id="authStatus" hidden>
+          <span class="auth-sync-dot" aria-hidden="true"></span>
+          <span class="auth-status-text" id="authStatusText">Cloud synced</span>
+          <button class="auth-signout" id="authSignOutBtn" type="button">Sign out</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ══ COLUMN 2: MAIN ADVENTURE HUB ══ -->
+    <main class="col-adventure gold-frame" aria-label="Adventure Hub">
+     
+      <div class="banner-title" id="bannerTitle">The Chronicles of …</div>
+
+      <div class="adventure-inner">
+        <section class="parchment-scroll" aria-live="polite">
+          <div class="text-box-wrap">
+            <p class="dialogue-text" id="dialogueText"></p>
+            <button class="speak-btn speak-btn--corner" data-speak-from="dialogueText" type="button" aria-label="Read dialogue aloud">🔊</button>
+          </div>
+        </section>
+
+        <div class="action-row" id="interaction-buttons"></div>
+
+        <button class="btn-skip" id="skipInteractionBtn" type="button">Skip Interaction</button>
+
+        <div class="quest-drawer" id="questDrawer">
+          <div class="quest-mini-grid" id="questList"></div>
+        </div>
+
+        <section class="discovery-section">
+          <div class="discovery-panel">
+            <div class="discovery-subtitle">Scroll of Knowledge</div>
+            <div class="text-box-wrap">
+              <p class="knowledge-body" id="inlineKnowledgeText">
+                Today's Insight: Granite is an igneous rock formed by cooling magma underground; it is incredibly durable and forms the core of major mountain ranges.
+              </p>
+              <button class="speak-btn speak-btn--corner" data-speak-from="inlineKnowledgeText" type="button" aria-label="Read insight aloud">🔊</button>
+            </div>
+            <button class="btn-cyan" id="watchTransmissionBtn" type="button">WATCH TRANSMISSION</button>
+          </div>
+        </section>
+
+        <button class="btn-wheel" id="openWheelBtn" type="button">SPIN THE MYSTERY WHEEL</button>
+        <p class="wheel-status" id="wheelStatus">No spin result yet.</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- Mystery Wheel Modal -->
+  <div class="overlay" id="wheelOverlay" aria-hidden="true">
+    <div class="modal-gold" role="dialog" aria-modal="true" aria-label="Mystery Wheel">
+      <h3 class="modal-title">MYSTERY WHEEL OF DAILY DESTINY</h3>
+      <div class="wheel-wrap">
+        <div class="wheel-pointer" aria-hidden="true"></div>
+        <canvas id="wheelCanvas" width="360" height="360"></canvas>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn--gold" id="spinAgainBtn" type="button">Spin Again</button>
+        <button class="modal-btn" id="closeWheelBtn" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inventory Modal -->
+  <div class="overlay" id="inventoryOverlay" aria-hidden="true">
+    <div class="modal-gold" role="dialog" aria-modal="true" aria-label="Inventory">
+      <h3 class="modal-title">INVENTORY</h3>
+      <p class="inventory-empty" id="inventoryEmpty">No treasures yet — complete quests to earn loot!</p>
+      <div class="inventory-grid" id="inventoryGrid"></div>
+      <div class="modal-actions">
+        <button class="modal-btn" id="closeInventoryBtn" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Subject Picker Modal -->
+  <div class="overlay" id="subjectOverlay" aria-hidden="true">
+    <div class="modal-gold" role="dialog" aria-modal="true" aria-label="Choose a subject">
+      <h3 class="modal-title">CHOOSE YOUR PATH</h3>
+      <p style="text-align:center;font-size:14px;color:#c8dce8;margin-bottom:12px;">Pick a subject to see today's quests.</p>
+      <div class="subject-picker-grid" id="subjectPickerGrid"></div>
+      <div class="modal-actions">
+        <button class="modal-btn" id="closeSubjectBtn" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Parent PIN Modal -->
+  <div class="overlay" id="pinOverlay" aria-hidden="true">
+    <div class="modal-gold" role="dialog" aria-modal="true" aria-label="Parent verification">
+      <h3 class="modal-title">PARENT CODE</h3>
+      <p style="text-align:center;font-size:14px;color:#c8dce8;margin-bottom:8px;">Ask your parent for the 4-digit code.</p>
+      <div class="pin-display" id="pinDisplay">
+        <span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span>
+      </div>
+      <p class="auth-error" id="pinError" hidden></p>
+      <div class="pin-pad" id="pinPad">
+        <button class="pin-key" type="button" data-pin="1">1</button>
+        <button class="pin-key" type="button" data-pin="2">2</button>
+        <button class="pin-key" type="button" data-pin="3">3</button>
+        <button class="pin-key" type="button" data-pin="4">4</button>
+        <button class="pin-key" type="button" data-pin="5">5</button>
+        <button class="pin-key" type="button" data-pin="6">6</button>
+        <button class="pin-key" type="button" data-pin="7">7</button>
+        <button class="pin-key" type="button" data-pin="8">8</button>
+        <button class="pin-key" type="button" data-pin="9">9</button>
+        <button class="pin-key" type="button" data-pin="clear">⌫</button>
+        <button class="pin-key" type="button" data-pin="0">0</button>
+        <button class="pin-key" type="button" data-pin="ok">✓</button>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn" id="closePinBtn" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script type="module">
+    import { supabase } from "./supabaseClient.js";
+    import { hydratePlayerProfile } from "./playerProfile.js";
+    import {
+      hydrateQuestState,
+      syncQuestState,
+      recordQuestClaim,
+      ensureDailyQuests,
+      startQuestTimer,
+      markQuestReady,
+      verifyParentPin,
+      applyActiveQuests,
+      fetchActiveQuests,
+      isValidSubjectSlug,
+      buildSubjectsFromTemplates
+    } from "./questSync.js";
+    import { createAuthController } from "./authPanel.js";
+    import { hydrateDiscoveryContent, recordTransmissionWatch } from "./discoveryContent.js";
+    import { createStoryEngine, validateStoryTurn } from "./storyEngine.js";
+    import {
+      hydrateInventory,
+      maybeAwardRandomLoot,
+      awardItemBySlug,
+      fetchUserInventory
+    } from "./inventory.js";
+
+    window.__validateStoryTurn = validateStoryTurn;
+
+    window.__hydrateProfile = async (config, gameState, session = null) => {
+      try {
+        const row = await hydratePlayerProfile(supabase, config, gameState, session);
+        if (row) {
+          console.info(
+            "Profile synced from Supabase:",
+            row.player_name,
+            "·",
+            row.rank_ribbon
+          );
+        } else {
+          console.warn("Profile sync skipped — no session or profile row.");
+        }
+        return row;
+      } catch (err) {
+        console.warn("Supabase profile load failed:", err);
+        return null;
+      }
+    };
+
+    window.__hydrateQuest = async (gameState, todayKey, session = null) => {
+      try {
+        return await hydrateQuestState(supabase, gameState, todayKey, session);
+      } catch (err) {
+        console.warn("Supabase quest load failed:", err);
+        return false;
+      }
+    };
+
+    window.__syncQuestState = async (gameState, todayKey) => {
+      try {
+        return await syncQuestState(supabase, gameState, todayKey);
+      } catch (err) {
+        console.warn("Supabase quest sync failed:", err);
+        return false;
+      }
+    };
+
+    window.__recordQuestClaim = async (questId, rewardXp, newXpTotal, claimDate, activeQuestId = null) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return false;
+
+      try {
+        await recordQuestClaim(
+          supabase,
+          session.user.id,
+          questId,
+          rewardXp,
+          claimDate,
+          newXpTotal,
+          activeQuestId
+        );
+        return true;
+      } catch (err) {
+        console.warn("Supabase claim sync failed:", err);
+        throw err;
+      }
+    };
+
+    window.__ensureDailyQuests = async (gameState, todayKey, subject) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return [];
+      const rows = await ensureDailyQuests(supabase, session.user.id, todayKey, subject);
+      applyActiveQuests(rows, gameState);
+      return rows;
+    };
+
+    window.__startQuestTimer = async (activeQuestId, gameState) => {
+      const updated = await startQuestTimer(supabase, activeQuestId);
+      const idx = (gameState.activeQuests ?? []).findIndex((q) => q.activeQuestId === activeQuestId);
+      if (idx >= 0) gameState.activeQuests[idx] = updated;
+      else if (gameState.activeQuests) gameState.activeQuests.push(updated);
+      return updated;
+    };
+
+    window.__markQuestReady = async (activeQuestId, gameState) => {
+      const updated = await markQuestReady(supabase, activeQuestId);
+      const idx = (gameState.activeQuests ?? []).findIndex((q) => q.activeQuestId === activeQuestId);
+      if (idx >= 0) gameState.activeQuests[idx] = updated;
+      return updated;
+    };
+
+    window.__verifyParentPin = async (pin) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return false;
+      return verifyParentPin(supabase, session.user.id, pin);
+    };
+
+    window.__hydrateInventory = async (session = null) => {
+      try {
+        return await hydrateInventory(supabase, session);
+      } catch (err) {
+        console.warn("Inventory hydration failed:", err);
+        return [];
+      }
+    };
+    window.__maybeAwardLoot = async (source) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return null;
+      const item = await maybeAwardRandomLoot(supabase, session.user.id, source);
+      if (item) await hydrateInventory(supabase);
+      return item;
+    };
+
+    window.__fetchInventory = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return [];
+      return fetchUserInventory(supabase, session.user.id);
+    };
+
+    window.__awardItemBySlug = async (slug, source = "story") => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return null;
+      const item = await awardItemBySlug(supabase, session.user.id, slug, source);
+      if (item) await hydrateInventory(supabase);
+      return item;
+    };
+
+    window.__refreshActiveQuests = async (gameState, todayKey) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      const rows = await fetchActiveQuests(supabase, session.user.id, todayKey);
+      applyActiveQuests(rows, gameState);
+    };
+
+    window.__hydrateScrollOfKnowledge = async (fallbackText, fallbackVideoUrl = null, session = null) => {
+      try {
+        return await hydrateDiscoveryContent(supabase, { fallbackText, fallbackVideoUrl }, session);
+      } catch (err) {
+        console.warn("Discovery content hydrate failed:", err);
+        return null;
+      }
+    };
+
+    window.__refreshFromSupabase = async (session = null) => {
+      if (typeof window.__hydrateProfile !== "function") return;
+      const config = window.__gameConfig;
+      const gameState = window.__gameState;
+      if (!config || !gameState) return;
+
+      if (!session) {
+        try {
+          const { data: { session: currentSession } } = await supabase.auth.getSession();
+          session = currentSession;
+        } catch (err) {
+          console.warn("Failed to get session for refresh:", err);
+        }
+      }
+
+      await Promise.all([
+        window.__hydrateProfile(config, gameState, session).catch(err => {
+          console.error("Profile refresh failed:", err);
+          return null;
+        }),
+        typeof window.__hydrateQuest === "function"
+          ? window.__hydrateQuest(gameState, window.__todayKey(), session).catch(err => {
+              console.error("Quest refresh failed:", err);
+              return false;
+            })
+          : Promise.resolve(false),
+        typeof window.__hydrateScrollOfKnowledge === "function"
+          ? window.__hydrateScrollOfKnowledge(config.defaultInsight, null, session).catch(err => {
+              console.error("Scroll refresh failed:", err);
+              return null;
+            })
+          : Promise.resolve(null),
+        typeof window.__hydrateInventory === "function"
+          ? window.__hydrateInventory(session).catch(err => {
+              console.error("Inventory refresh failed:", err);
+              return [];
+            })
+          : Promise.resolve([])
+      ]);
+
+      if (typeof window.__renderDashboard === "function") {
+        window.__renderDashboard();
+      }
+
+      if (typeof window.__storyEngine?.renderCurrentTurn === "function") {
+        window.__storyEngine.renderCurrentTurn();
+      } else if (typeof window.__initStoryEngine === "function") {
+        window.__initStoryEngine(config, gameState, {
+          defaultTurn: window.__validateStoryTurn
+            ? window.__validateStoryTurn(config.defaultStory)
+            : config.defaultStory,
+          saveState: window.__saveState,
+          setSubject: window.__setSubject,
+          renderQuestList: window.__renderQuestList,
+          openWheelModal: window.__openWheelModal,
+          openSubjectPicker: window.__openSubjectPicker,
+          showToast: window.__showToast,
+          fetchInventory: window.__fetchInventory ?? (async () => []),
+          awardItemBySlug: window.__awardItemBySlug ?? (async () => null)
+        }).catch(err => console.error("Story engine refresh failed:", err));
+      }
+    };
+
+    window.__initStoryEngine = async (config, gameState, callbacks) => {
+      try {
+        const engine = createStoryEngine(supabase, config, gameState, callbacks);
+        await engine.bootstrap();
+        window.__storyEngine = engine;
+        return engine;
+      } catch (err) {
+        console.warn("Story engine init failed:", err);
+        return null;
+      }
+    };
+
+    window.__recordTransmissionWatch = (session = null) => recordTransmissionWatch(supabase, session);
+
+    let dashboardLaunching = false;
+
+    createAuthController(supabase, {
+      async onSignedIn(session) {
+        if (dashboardLaunching) {
+          return;
+        }
+        if (!window.__dashboardReady) {
+          dashboardLaunching = true;
+          try {
+            if (typeof window.__launchDashboard === "function") {
+              await window.__launchDashboard(session);
+              window.__dashboardReady = true;
+            }
+          } catch (err) {
+            console.error("Dashboard launch failed:", err);
+          } finally {
+            dashboardLaunching = false;
+          }
+          return;
+        }
+        await window.__refreshFromSupabase(session);
+      },
+      async onSignedOut() {
+        window.__dashboardReady = false;
+      }
+    }).bootstrap().catch((err) => {
+      console.warn("Auth bootstrap failed:", err);
+      document.getElementById("authOverlay")?.classList.add("open");
+      document.getElementById("authError").hidden = false;
+      document.getElementById("authError").textContent =
+        "Could not check sign-in status. Please try again.";
+    });
+  </script>
+
+  <script>
+    const CONFIG = {
+      player: { name: "NIMPOL", rank: "Wanderer", xp: 1448, xpToNextRank: 2000 },
+      attributes: [
+        { id: "mana",       label: "Mana",       current: 62, max: 100, diamond: "mana",       barClass: "bar-mana" },
+        { id: "intellect",  label: "Intellect",  current: 88, max: 100, diamond: "intellect",  barClass: "bar-intellect" },
+        { id: "lore",       label: "Lore",       current: 30, max: 100, diamond: "lore",       barClass: "bar-lore" },
+        { id: "perception", label: "Perception", current: 71, max: 100, diamond: "perception", barClass: "bar-perception" },
+        { id: "charisma",   label: "Charisma",   current: 45, max: 100, diamond: "charisma",   barClass: "bar-charisma" },
+        { id: "stamina",    label: "Stamina",    current: 50, max: 100, diamond: "stamina",    barClass: "bar-stamina" }
+      ],
+      defaultInsight: "Today's Insight: Granite is an igneous rock formed by cooling magma underground; it is incredibly durable and forms the core of major mountain ranges.",
+      defaultStory: {
+        storyText: "Good morning, Nimpol! Your focus crystal hums softly. How shall we begin today's chronicle?",
+        choices: [
+          { id: "energetic", label: "Charge Ahead", action: "continue" },
+          { id: "strategize", label: "Plan First", action: "continue" },
+          { id: "scout", label: "Scout Ahead", action: "continue" }
+        ]
+      },
+      questTemplates: {
+        math: [
+          { id: "math-vault", icon: "🔢", title: "Vault of Arithmancy", description: "Beast Academy puzzle chain.", reward: 72, portalUrl: "https://beastacademy.com" },
+          { id: "math-redstone", icon: "🧠", title: "Redstone Logic", description: "Timed logic patterns.", reward: 80, portalUrl: "https://beastacademy.com" },
+          { id: "math-golem", icon: "🧱", title: "Golem Calculator", description: "Mixed arithmetic rounds.", reward: 68, portalUrl: "https://beastacademy.com" }
+        ],
+        reading: [
+          { id: "reading-scroll", icon: "📖", title: "Scroll of Main Ideas", description: "Read and find the central message.", reward: 48, portalUrl: "https://beastacademy.com" },
+          { id: "reading-runes", icon: "📝", title: "Runes of Inference", description: "Answer inference prompts.", reward: 55, portalUrl: "https://beastacademy.com" },
+          { id: "reading-echo", icon: "📚", title: "Echo Summary", description: "Summarize and define new words.", reward: 45, portalUrl: "https://beastacademy.com" }
+        ],
+        typing: [
+          { id: "typing-rhythm", icon: "⌨️", title: "Rhythm Forge", description: "TTRS lesson drills.", reward: 40, portalUrl: "https://www.ttrs.com" },
+          { id: "typing-accuracy", icon: "🎯", title: "Accuracy Crystal", description: "Target accuracy challenge.", reward: 44, portalUrl: "https://www.ttrs.com" },
+          { id: "typing-speed", icon: "⚡", title: "Speed Run", description: "Beat your WPM score.", reward: 50, portalUrl: "https://www.ttrs.com" }
+        ]
+      },
+      knowledgeFacts: [
+        "Today's Insight: Granite is an igneous rock formed by cooling magma underground; it is incredibly durable and forms the core of major mountain ranges.",
+        "Today's Insight: Basalt columns form when cooling lava contracts into geometric cracks — clues to ancient volcanic activity.",
+        "Today's Insight: Many minerals glow under ultraviolet light because their crystal structure re-emits stored energy.",
+        "Today's Insight: Sedimentary rocks can preserve ripple marks from old rivers, helping scientists map ancient landscapes."
+      ]
+    };
+
+    const STORAGE_KEY = "nimpolxp_state_v5";
+
+    function todayKey() { return new Date().toISOString().slice(0, 10); }
+
+    let state = {
+      xp: CONFIG.player.xp,
+      claimedToday: [],
+      selectedSubject: null,
+      highlightedQuestId: null,
+      lastWheelResult: null,
+      wheelSpins: 0,
+      wheelRotation: 0,
+      lastResetDate: todayKey(),
+      activeQuests: [],
+      questTemplates: [],
+      subjects: []
+    };
+
+    function getDisplayPlayerName() {
+      return CONFIG.player.name || "Nimpol";
+    }
+
+    function personalizeStoryText(text) {
+      if (!text) return text;
+      const name = getDisplayPlayerName();
+      return text.replace(/\bNimpol\b/gi, name);
+    }
+
+    let toastTimer, animatingXP, audioContext, activeTickNode, wheelAnimating;
+    let questSyncTimer = null;
+    let questTimerInterval = null;
+    let pendingPinQuestId = null;
+    let pinBuffer = "";
+    const wheel = { canvas: null, ctx: null, segments: [], rotation: 0 };
+
+    function formatNumber(v) { return v.toLocaleString("en-US"); }
+    function percent(v, max) { return Math.max(0, Math.min(100, Math.round((v / max) * 100))); }
+
+    function showToast(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove("show"), 2800);
+    }
+
+    function getKnowledgeFact() {
+      return CONFIG.knowledgeFacts[Math.floor(Math.random() * CONFIG.knowledgeFacts.length)];
+    }
+
+    function updateInlineKnowledge(text) {
+      const el = document.getElementById("inlineKnowledgeText");
+      el.textContent = text;
+      el.classList.remove("pulse");
+      void el.offsetWidth;
+      el.classList.add("pulse");
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const p = JSON.parse(raw);
+          state = { ...state, ...p };
+        }
+      } catch (e) { console.warn("Load failed", e); }
+
+      if (state.lastResetDate !== todayKey()) {
+        state.claimedToday = [];
+        state.highlightedQuestId = null;
+        state.lastResetDate = todayKey();
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      scheduleQuestSync();
+    }
+
+    function scheduleQuestSync() {
+      if (questSyncTimer) clearTimeout(questSyncTimer);
+      questSyncTimer = setTimeout(async () => {
+        if (typeof window.__syncQuestState !== "function") return;
+        await window.__syncQuestState(state, todayKey());
+      }, 400);
+    }
+
+    const TTS = {
+      synth: window.speechSynthesis,
+      currentButton: null,
+      speak(text, btn) {
+        this.stop();
+        if (!this.synth) { showToast("Speech unavailable."); return; }
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 0.93; u.pitch = 1.03;
+        const voices = this.synth.getVoices();
+        const v = voices.find(x => x.lang.startsWith("en")) || voices[0];
+        if (v) u.voice = v;
+        this.currentButton = btn || null;
+        if (this.currentButton) this.currentButton.classList.add("speaking");
+        u.onend = u.onerror = () => this.stop();
+        this.synth.speak(u);
+      },
+      stop() {
+        if (this.synth) this.synth.cancel();
+        if (this.currentButton) {
+          this.currentButton.classList.remove("speaking");
+          if (this.currentButton.dataset.speakFrom) {
+            this.currentButton.setAttribute("aria-label", "Read aloud");
+          }
+          this.currentButton = null;
+        }
+      }
+    };
+
+    function ensureAudioContext() {
+      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioContext.state === "suspended") audioContext.resume();
+      return audioContext;
+    }
+
+    function playRewardChime() {
+      try {
+        const ctx = ensureAudioContext(), now = ctx.currentTime;
+        [523.25, 659.25, 783.99].forEach((f, i) => {
+          const osc = ctx.createOscillator(), g = ctx.createGain();
+          osc.type = "triangle"; osc.frequency.value = f;
+          g.gain.setValueAtTime(0.0001, now + i * 0.1);
+          g.gain.exponentialRampToValueAtTime(0.2, now + i * 0.1 + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.1 + 0.28);
+          osc.connect(g); g.connect(ctx.destination);
+          osc.start(now + i * 0.1); osc.stop(now + i * 0.1 + 0.3);
+        });
+      } catch (e) { /* silent */ }
+    }
+
+    function playWheelTick() {
+      try {
+        const ctx = ensureAudioContext();
+        if (activeTickNode) { activeTickNode.disconnect(); activeTickNode = null; }
+        const osc = ctx.createOscillator(), g = ctx.createGain();
+        osc.type = "square"; osc.frequency.value = 930;
+        g.gain.setValueAtTime(0.04, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.035);
+        osc.connect(g); g.connect(ctx.destination);
+        osc.start(); osc.stop(ctx.currentTime + 0.04);
+        activeTickNode = g;
+      } catch (e) { /* silent */ }
+    }
+
+    function playVictoryChime() {
+      try {
+        const ctx = ensureAudioContext(), now = ctx.currentTime;
+        [392, 523.25, 659.25, 783.99].forEach((f, i) => {
+          const osc = ctx.createOscillator(), g = ctx.createGain();
+          osc.type = "sine"; osc.frequency.value = f;
+          g.gain.setValueAtTime(0.0001, now + i * 0.11);
+          g.gain.exponentialRampToValueAtTime(0.2, now + i * 0.11 + 0.03);
+          g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.11 + 0.32);
+          osc.connect(g); g.connect(ctx.destination);
+          osc.start(now + i * 0.11); osc.stop(now + i * 0.11 + 0.34);
+        });
+      } catch (e) { /* silent */ }
+    }
+
+    function formatTimerMs(ms) {
+      const totalSec = Math.max(0, Math.ceil(ms / 1000));
+      const m = Math.floor(totalSec / 60);
+      const s = totalSec % 60;
+      return `${m}:${String(s).padStart(2, "0")}`;
+    }
+
+    function getQuestTimerRemainingMs(quest) {
+      if (!quest?.timerReadyAt) return 0;
+      return Math.max(0, new Date(quest.timerReadyAt).getTime() - Date.now());
+    }
+
+    function syncLocalQuestTimer(quest) {
+      if (!quest || quest.verificationType !== "time_delay" || quest.status === "claimed") return quest;
+      if (quest.status === "in_progress" && getQuestTimerRemainingMs(quest) <= 0) {
+        quest.status = "ready";
+      }
+      return quest;
+    }
+
+    function mapTemplateToCard(t) {
+      const claimed = state.claimedToday.includes(t.slug);
+      return {
+        id: t.slug,
+        subject: t.subject,
+        toolName: t.tool_name,
+        icon: t.icon ?? "📜",
+        title: t.title ?? "Quest",
+        description: t.description ?? "",
+        reward: t.reward_xp ?? 0,
+        portalUrl: t.portal_url ?? null,
+        verificationType: t.verification_type ?? "instant",
+        delayMinutes: t.delay_minutes ?? 0,
+        status: claimed ? "claimed" : "assigned",
+        activeQuestId: null
+      };
+    }
+
+    function isKnownSubject(id) {
+      if ((state.subjects ?? []).some((s) => s.slug === id)) return true;
+      if ((state.questTemplates ?? []).some((t) => t.subject === id)) return true;
+      return !!CONFIG.questTemplates[id];
+    }
+
+    function getSubjectCards(id) {
+      const active = (state.activeQuests ?? []).filter((q) => q.subject === id);
+      if (active.length) return active.map((q) => syncLocalQuestTimer({ ...q }));
+
+      const fromTemplates = (state.questTemplates ?? []).filter((t) => t.subject === id);
+      if (fromTemplates.length) return fromTemplates.map(mapTemplateToCard);
+
+      return (CONFIG.questTemplates[id] || []).map((c) => ({
+        ...c,
+        subject: id,
+        toolName: c.toolName ?? "Quest",
+        verificationType: "instant",
+        status: state.claimedToday.includes(c.id) ? "claimed" : "assigned",
+        activeQuestId: null
+      }));
+    }
+
+    function getQuestById(id) {
+      const fromActive = (state.activeQuests ?? []).find((c) => c.id === id);
+      if (fromActive) return syncLocalQuestTimer({ ...fromActive });
+
+      const fromTemplate = (state.questTemplates ?? []).find((t) => t.slug === id);
+      if (fromTemplate) return mapTemplateToCard(fromTemplate);
+
+      return Object.values(CONFIG.questTemplates).flat().find((c) => c.id === id) || null;
+    }
+
+    function getActiveSubjects() {
+      const catalog = (state.subjects ?? []).map((s) => s.slug);
+      const slugs = catalog.length ? catalog : Object.keys(CONFIG.questTemplates);
+
+      return slugs.filter((id) =>
+        getSubjectCards(id).some((c) => c.status !== "claimed" && !state.claimedToday.includes(c.id))
+      );
+    }
+
+    function renderSubjectPickerGrid() {
+      const grid = document.getElementById("subjectPickerGrid");
+      if (!grid) return;
+
+      const subjects = state.subjects?.length
+        ? state.subjects
+        : Object.keys(CONFIG.questTemplates).map((slug) => ({
+            slug,
+            label: slug.charAt(0).toUpperCase() + slug.slice(1),
+            icon: "📚"
+          }));
+
+      grid.innerHTML = subjects
+        .map(
+          (s) => `
+        <button class="subject-picker-btn" type="button" data-pick-subject="${s.slug}">
+          <span class="subject-picker-icon">${s.icon ?? "📚"}</span>
+          <span>${s.label ?? s.slug}</span>
+        </button>
+      `
+        )
+        .join("");
+    }
+
+    function openSubjectPicker() {
+      renderSubjectPickerGrid();
+      const overlay = document.getElementById("subjectOverlay");
+      overlay.classList.add("open");
+      overlay.setAttribute("aria-hidden", "false");
+    }
+
+    function closeSubjectPicker() {
+      const overlay = document.getElementById("subjectOverlay");
+      overlay.classList.remove("open");
+      overlay.setAttribute("aria-hidden", "true");
+    }
+
+    async function pickSubject(slug) {
+      closeSubjectPicker();
+      await setSubject(slug, false);
+      document.getElementById("questDrawer")?.classList.add("open");
+      showToast(`Pick a ${slug} quest below!`);
+    }
+
+    function buildQuestActionButtons(card) {
+      const claimed = card.status === "claimed" || state.claimedToday.includes(card.id);
+      const speak = `${card.title}. ${card.description}. Reward ${card.reward} XP.`;
+      let html = `<button class="mini-btn speak-mini" data-speak="${encodeURIComponent(speak)}" type="button" aria-label="Read aloud">🔊</button>`;
+
+      if (claimed) {
+        return html + `<span style="font-size:11px;opacity:0.8;">✓ Claimed</span>`;
+      }
+
+      if (card.portalUrl) {
+        html += `<button class="mini-btn" data-open-portal="${card.portalUrl}" type="button">Portal</button>`;
+      }
+
+      if (card.verificationType === "time_delay") {
+        if (card.status === "assigned") {
+          html += `<button class="mini-btn mini-btn--claim" data-start-timer="${card.activeQuestId}" type="button">Start</button>`;
+        } else if (card.status === "in_progress" && getQuestTimerRemainingMs(card) > 0) {
+          html += `<span class="quest-timer" data-timer-for="${card.id}">${formatTimerMs(getQuestTimerRemainingMs(card))}</span>`;
+        } else {
+          html += `<button class="mini-btn mini-btn--claim" data-claim="${card.id}" type="button">Claim</button>`;
+        }
+      } else if (card.verificationType === "parent_code") {
+        html += `<button class="mini-btn mini-btn--claim" data-verify-pin="${card.id}" type="button">Parent Code</button>`;
+      } else {
+        html += `<button class="mini-btn mini-btn--claim" data-claim="${card.id}" type="button">Claim</button>`;
+      }
+
+      return html;
+    }
+
+    function ensureQuestTimerTick() {
+      if (questTimerInterval) return;
+      questTimerInterval = setInterval(() => {
+        if (!state.selectedSubject) return;
+        let changed = false;
+        (state.activeQuests ?? []).forEach((q) => {
+          if (q.verificationType === "time_delay" && q.status === "in_progress" && getQuestTimerRemainingMs(q) <= 0) {
+            q.status = "ready";
+            changed = true;
+          }
+        });
+        if (changed) {
+          saveState();
+          renderQuestList();
+          return;
+        }
+        document.querySelectorAll("[data-timer-for]").forEach((el) => {
+          const quest = getQuestById(el.dataset.timerFor);
+          if (!quest?.timerReadyAt) return;
+          const ms = getQuestTimerRemainingMs(quest);
+          if (ms <= 0) renderQuestList();
+          else el.textContent = formatTimerMs(ms);
+        });
+      }, 1000);
+    }
+
+    function updatePinDisplay() {
+      const dots = document.querySelectorAll("#pinDisplay .pin-dot");
+      dots.forEach((dot, i) => dot.classList.toggle("filled", i < pinBuffer.length));
+    }
+
+    function appendPinDigit(digit) {
+      if (pinBuffer.length < 4) {
+        pinBuffer += digit;
+        updatePinDisplay();
+      }
+    }
+
+    function backspacePin() {
+      pinBuffer = pinBuffer.slice(0, -1);
+      updatePinDisplay();
+    }
+
+    function handlePinKeyboard(e) {
+      if (pendingPinQuestId === null) return;
+
+      const key = e.key;
+      if (/^[0-9]$/.test(key)) {
+        e.preventDefault();
+        appendPinDigit(key);
+      } else if (key === "Backspace") {
+        e.preventDefault();
+        backspacePin();
+      } else if (key === "Enter") {
+        e.preventDefault();
+        submitPin();
+      } else if (key === "Escape") {
+        e.preventDefault();
+        closePinModal();
+      }
+    }
+
+    function openPinModal(questId) {
+      pendingPinQuestId = questId;
+      pinBuffer = "";
+      updatePinDisplay();
+      const err = document.getElementById("pinError");
+      if (err) err.hidden = true;
+      const overlay = document.getElementById("pinOverlay");
+      overlay.classList.add("open");
+      overlay.setAttribute("aria-hidden", "false");
+    }
+
+    function closePinModal() {
+      pendingPinQuestId = null;
+      pinBuffer = "";
+      const overlay = document.getElementById("pinOverlay");
+      overlay.classList.remove("open");
+      overlay.setAttribute("aria-hidden", "true");
+    }
+
+    async function submitPin() {
+      if (pinBuffer.length !== 4) return;
+      const questId = pendingPinQuestId;
+      const ok = typeof window.__verifyParentPin === "function"
+        ? await window.__verifyParentPin(pinBuffer)
+        : pinBuffer === "1234";
+
+      if (!ok) {
+        const err = document.getElementById("pinError");
+        if (err) {
+          err.textContent = "Wrong code — try again.";
+          err.hidden = false;
+        }
+        pinBuffer = "";
+        updatePinDisplay();
+        return;
+      }
+
+      closePinModal();
+      const quest = getQuestById(questId);
+      if (quest?.activeQuestId && typeof window.__markQuestReady === "function") {
+        await window.__markQuestReady(quest.activeQuestId, state);
+      } else if (quest) {
+        quest.status = "ready";
+      }
+      saveState();
+      renderQuestList();
+      await claimReward(questId);
+    }
+
+    function openInventoryModal() {
+      if (typeof window.__hydrateInventory === "function") {
+        window.__hydrateInventory();
+      }
+      const overlay = document.getElementById("inventoryOverlay");
+      overlay.classList.add("open");
+      overlay.setAttribute("aria-hidden", "false");
+    }
+
+    function closeInventoryModal() {
+      const overlay = document.getElementById("inventoryOverlay");
+      overlay.classList.remove("open");
+      overlay.setAttribute("aria-hidden", "true");
+    }
+
+    async function startQuestCountdown(activeQuestId) {
+      if (!activeQuestId || typeof window.__startQuestTimer !== "function") {
+        showToast("Sign in to start timed quests.");
+        return;
+      }
+      try {
+        await window.__startQuestTimer(activeQuestId, state);
+        saveState();
+        renderQuestList();
+        ensureQuestTimerTick();
+        showToast("Timer started — complete your lesson!");
+      } catch (err) {
+        showToast("Could not start timer.");
+      }
+    }
+
+    function updateXPBar(value) {
+      const max = CONFIG.player.xpToNextRank;
+      document.getElementById("xpFill").style.width = `${percent(value, max)}%`;
+      document.getElementById("xpText").textContent = `${formatNumber(value)} / ${formatNumber(max)} XP`;
+      document.getElementById("xpTrack").setAttribute("aria-valuenow", String(value));
+    }
+
+    function animateXP(from, to, duration = 950) {
+      return new Promise(resolve => {
+        animatingXP = true;
+        const start = performance.now();
+        function step(now) {
+          const t = Math.min(1, (now - start) / duration);
+          updateXPBar(Math.round(from + (to - from) * (1 - Math.pow(1 - t, 3))));
+          if (t < 1) requestAnimationFrame(step);
+          else { animatingXP = false; resolve(); }
+        }
+        requestAnimationFrame(step);
+      });
+    }
+
+    function renderAttributes() {
+      document.getElementById("attrList").innerHTML = CONFIG.attributes.map(a => `
+        <div class="attr-row">
+          <div class="diamond diamond--${a.diamond}" aria-hidden="true"></div>
+          <span class="attr-label">${a.label} ${a.current}/${a.max}</span>
+          <div class="attr-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="${a.max}" aria-valuenow="${a.current}" aria-label="${a.label}">
+            <div class="attr-bar-fill ${a.barClass}" style="width:${percent(a.current, a.max)}%"></div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function getDefaultStoryTurn() {
+      let turn;
+      if (typeof window.__validateStoryTurn === "function") {
+        turn = window.__validateStoryTurn(CONFIG.defaultStory);
+      } else {
+        turn = { ...CONFIG.defaultStory, choices: [...CONFIG.defaultStory.choices] };
+      }
+      return {
+        ...turn,
+        storyText: personalizeStoryText(turn.storyText)
+      };
+    }
+
+    function renderDialogue() {
+      if (window.__storyEngine?.renderCurrentTurn) {
+        window.__storyEngine.renderCurrentTurn();
+        return;
+      }
+
+      const defaultTurn = getDefaultStoryTurn();
+      document.getElementById("dialogueText").textContent = defaultTurn.storyText;
+      renderInteractionChoices(defaultTurn.choices);
+    }
+
+    function renderInteractionChoices(choices) {
+      const container = document.getElementById("interaction-buttons");
+      if (!container) return;
+      container.innerHTML = "";
+      choices.forEach((choice) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn-emerald";
+        btn.textContent = choice.label;
+        btn.dataset.storyChoice = choice.id;
+        btn.dataset.storyAction = choice.action || "continue";
+        if (choice.value) btn.dataset.storyValue = choice.value;
+        container.appendChild(btn);
+      });
+    }
+
+    window.__renderInteractionChoices = renderInteractionChoices;
+
+    function renderQuestList() {
+      const drawer = document.getElementById("questDrawer");
+      const list = document.getElementById("questList");
+
+      if (!state.selectedSubject) {
+        drawer.classList.remove("open");
+        list.innerHTML = "";
+        return;
+      }
+
+      drawer.classList.add("open");
+      list.innerHTML = getSubjectCards(state.selectedSubject).map(card => {
+        const claimed = card.status === "claimed" || state.claimedToday.includes(card.id);
+        const highlight = state.highlightedQuestId === card.id;
+        return `
+          <div class="quest-mini${claimed ? " claimed" : ""}${highlight ? " highlight" : ""}" id="card-${card.id}">
+            <div class="quest-mini-title">${card.icon} ${card.title}</div>
+            <div class="quest-tool-tag">${card.toolName ?? ""}</div>
+            <div>+${card.reward} XP</div>
+            <div class="quest-mini-actions">${buildQuestActionButtons(card)}</div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function updateWheelStatus() {
+      document.getElementById("wheelStatus").textContent = state.lastWheelResult
+        ? `${state.lastWheelResult.id === "ai-wildcard" ? "AI Wildcard" : "Wheel"} → ${state.lastWheelResult.label}`
+        : "No spin result yet.";
+    }
+
+    function handleStoryChoice(choiceId) {
+      if (window.__storyEngine?.handleChoiceClick) {
+        window.__storyEngine.handleChoiceClick(choiceId);
+      }
+    }
+
+    function skipInteraction() {
+      if (window.__storyEngine?.skipToSubjects) {
+        window.__storyEngine.skipToSubjects();
+      } else {
+        showToast("Choose a subject path to begin your quests.");
+      }
+    }
+
+    async function setSubject(id, fromStory = false) {
+      if (!isKnownSubject(id)) return;
+
+      state.selectedSubject = id;
+
+      if (typeof window.__ensureDailyQuests === "function") {
+        try {
+          await window.__ensureDailyQuests(state, todayKey(), id);
+        } catch (err) {
+          console.warn("Daily quest setup failed:", err);
+        }
+      }
+
+      const first = getSubjectCards(id).find((c) => c.status !== "claimed" && !state.claimedToday.includes(c.id));
+      state.highlightedQuestId = first ? first.id : null;
+      if (fromStory) state.lastWheelResult = null;
+      saveState();
+      renderQuestList();
+      ensureQuestTimerTick();
+      updateWheelStatus();
+    }
+
+    function openPortal(url) { if (url) window.open(url, "_blank", "noopener,noreferrer"); }
+
+    async function claimReward(questId) {
+      if (animatingXP || state.claimedToday.includes(questId)) return;
+      const quest = getQuestById(questId);
+      if (!quest || quest.status === "claimed") return;
+
+      if (quest.verificationType === "time_delay") {
+        if (quest.status === "assigned") {
+          showToast("Tap Start and complete your lesson first.");
+          return;
+        }
+        if (quest.status === "in_progress" && getQuestTimerRemainingMs(quest) > 0) {
+          showToast(`Wait ${formatTimerMs(getQuestTimerRemainingMs(quest))} before claiming.`);
+          return;
+        }
+      }
+
+      if (quest.verificationType === "parent_code" && quest.status !== "ready") {
+        openPinModal(questId);
+        return;
+      }
+
+      state.claimedToday.push(questId);
+      if (quest.activeQuestId) {
+        const idx = (state.activeQuests ?? []).findIndex((q) => q.id === questId);
+        if (idx >= 0) state.activeQuests[idx].status = "claimed";
+      }
+      if (state.highlightedQuestId === questId) state.highlightedQuestId = null;
+      saveState();
+      renderQuestList();
+
+      const from = state.xp;
+      playRewardChime();
+      await animateXP(from, from + quest.reward);
+      state.xp = from + quest.reward;
+      CONFIG.player.xp = state.xp;
+      saveState();
+
+      if (typeof window.__recordQuestClaim === "function") {
+        try {
+          await window.__recordQuestClaim(
+            questId,
+            quest.reward,
+            state.xp,
+            todayKey(),
+            quest.activeQuestId ?? null
+          );
+        } catch (err) {
+          showToast("Claim saved locally; cloud sync failed.");
+        }
+      }
+
+      if (typeof window.__maybeAwardLoot === "function") {
+        try {
+          const item = await window.__maybeAwardLoot("quest");
+          if (item) showToast(`Loot found: ${item.icon ?? "🎁"} ${item.name}!`);
+        } catch (err) {
+          console.warn("Loot award failed:", err);
+        }
+      }
+
+      showToast(`+${quest.reward} XP earned!`);
+      updateInlineKnowledge(getKnowledgeFact());
+    }
+
+    function getCssColor(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+    const WHEEL_COLOR_VARS = ["--wheel-a", "--wheel-b", "--wheel-c", "--wheel-d"];
+
+    function getWheelSegments() {
+      const activeSlugs = getActiveSubjects();
+      const catalog = state.subjects?.length
+        ? state.subjects.filter((s) => activeSlugs.includes(s.slug))
+        : activeSlugs.map((slug, i) => ({
+            slug,
+            label: slug.charAt(0).toUpperCase() + slug.slice(1)
+          }));
+
+      const segs = catalog.map((s, i) => ({
+        id: s.slug,
+        label: s.label ?? s.slug,
+        color: getCssColor(WHEEL_COLOR_VARS[i % WHEEL_COLOR_VARS.length])
+      }));
+
+      if (segs.length) {
+        segs.push({ id: "ai-wildcard", label: "AI Wildcard", color: getCssColor("--wheel-d") });
+      }
+      return segs;
+    }
+
+    function setupWheelCanvas() {
+      wheel.canvas = document.getElementById("wheelCanvas");
+      wheel.ctx = wheel.canvas.getContext("2d");
+      wheel.rotation = state.wheelRotation || 0;
+      wheel.segments = getWheelSegments();
+      drawWheel();
+    }
+
+    function drawWheel() {
+      const ctx = wheel.ctx;
+      if (!ctx) return;
+      const size = wheel.canvas.width, cx = size / 2, r = size / 2 - 8;
+      ctx.clearRect(0, 0, size, size);
+      ctx.save();
+      ctx.translate(cx, cx);
+      ctx.rotate(wheel.rotation);
+
+      if (!wheel.segments.length) {
+        ctx.fillStyle = "#444";
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.font = "18px OpenDyslexic, Arial"; ctx.textAlign = "center";
+        ctx.fillText("All done!", 0, 6);
+        ctx.restore();
+        return;
+      }
+
+      const step = (Math.PI * 2) / wheel.segments.length;
+      wheel.segments.forEach((seg, i) => {
+        const start = i * step;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, r, start, start + step); ctx.closePath();
+        ctx.fillStyle = seg.color; ctx.fill();
+        ctx.strokeStyle = "#1a1a1a"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.save();
+        ctx.rotate(start + step / 2);
+        ctx.translate(r * 0.62, 0);
+        ctx.rotate(Math.PI / 2);
+        ctx.fillStyle = "#fff8d2";
+        ctx.font = "bold 16px OpenDyslexic, Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(seg.label, 0, 0);
+        ctx.restore();
+      });
+
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.16, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffd76f"; ctx.fill();
+      ctx.strokeStyle = "#714f00"; ctx.lineWidth = 3; ctx.stroke();
+      ctx.restore();
+    }
+
+    function segmentAtPointer(rot, segs) {
+      if (!segs.length) return null;
+      const full = Math.PI * 2, norm = ((-Math.PI / 2 - rot) % full + full) % full;
+      return segs[Math.floor(norm / (full / segs.length))] || null;
+    }
+
+    function openWheelModal() {
+      wheel.segments = getWheelSegments();
+      setupWheelCanvas();
+      const overlay = document.getElementById("wheelOverlay");
+      overlay.classList.add("open");
+      overlay.setAttribute("aria-hidden", "false");
+      if (wheel.segments.length) spinWheel();
+    }
+
+    function closeWheelModal() {
+      document.getElementById("wheelOverlay").classList.remove("open");
+      document.getElementById("wheelOverlay").setAttribute("aria-hidden", "true");
+    }
+
+    function spinWheel() {
+      if (wheelAnimating) return;
+      if (!wheel.segments.length) { showToast("All quests done! See you tomorrow."); return; }
+
+      wheelAnimating = true;
+      const startRot = wheel.rotation;
+      const endRot = startRot + (7 + Math.random() * 4) * Math.PI * 2 + Math.random() * Math.PI * 2;
+      const duration = 4200, t0 = performance.now();
+      const stepAng = (Math.PI * 2) / wheel.segments.length;
+      let prevStep = Math.floor(startRot / stepAng);
+
+      function animate(now) {
+        const t = Math.min(1, (now - t0) / duration);
+        wheel.rotation = startRot + (endRot - startRot) * (1 - Math.pow(1 - t, 4));
+        drawWheel();
+        const cur = Math.floor(wheel.rotation / stepAng);
+        if (cur !== prevStep) { playWheelTick(); prevStep = cur; }
+
+        if (t < 1) { requestAnimationFrame(animate); return; }
+
+        const seg = segmentAtPointer(wheel.rotation, wheel.segments);
+        let subj = seg ? seg.id : null;
+        if (subj === "ai-wildcard") {
+          const active = getActiveSubjects();
+          subj = active[Math.floor(Math.random() * active.length)] || null;
+        }
+
+        if (subj) {
+          state.selectedSubject = subj;
+          if (typeof window.__ensureDailyQuests === "function") {
+            window.__ensureDailyQuests(state, todayKey(), subj).then(() => {
+              const first = getSubjectCards(subj).find(c => c.status !== "claimed" && !state.claimedToday.includes(c.id));
+              state.highlightedQuestId = first ? first.id : null;
+              renderQuestList();
+              ensureQuestTimerTick();
+            });
+          } else {
+            const first = getSubjectCards(subj).find(c => c.status !== "claimed" && !state.claimedToday.includes(c.id));
+            state.highlightedQuestId = first ? first.id : null;
+          }
+        }
+
+        state.lastWheelResult = {
+          id: seg ? seg.id : "none",
+          label: subj ? subj.charAt(0).toUpperCase() + subj.slice(1) : "None",
+          timestamp: Date.now()
+        };
+        state.wheelSpins++;
+        state.wheelRotation = wheel.rotation;
+        saveState();
+        renderQuestList();
+        updateWheelStatus();
+        playVictoryChime();
+        showToast(subj ? `Wheel chose ${subj.toUpperCase()}!` : "Spin complete.");
+        if (typeof window.__maybeAwardLoot === "function") {
+          window.__maybeAwardLoot("wheel").then((item) => {
+            if (item) showToast(`Wheel bonus: ${item.icon ?? "🎁"} ${item.name}!`);
+          });
+        }
+        wheelAnimating = false;
+      }
+      requestAnimationFrame(animate);
+    }
+
+    function attachEvents() {
+      document.body.addEventListener("click", e => {
+        const btn = e.target.closest("button");
+        if (!btn) return;
+        if (btn.dataset.storyChoice) { handleStoryChoice(btn.dataset.storyChoice); return; }
+        if (btn.dataset.speakFrom) {
+          const source = document.getElementById(btn.dataset.speakFrom);
+          const text = source ? source.textContent.trim() : "";
+          if (!text) return;
+          if (btn.classList.contains("speaking")) {
+            TTS.stop();
+          } else {
+            btn.setAttribute("aria-label", "Stop reading");
+            TTS.speak(text, btn);
+          }
+          return;
+        }
+        if (btn.dataset.speak) {
+          const text = decodeURIComponent(btn.dataset.speak);
+          if (btn.classList.contains("speaking")) {
+            TTS.stop();
+          } else {
+            TTS.speak(text, btn);
+          }
+          return;
+        }
+        if (btn.dataset.openPortal) { openPortal(btn.dataset.openPortal); return; }
+        if (btn.dataset.startTimer) { startQuestCountdown(btn.dataset.startTimer); return; }
+        if (btn.dataset.verifyPin) { openPinModal(btn.dataset.verifyPin); return; }
+        if (btn.dataset.pickSubject) { pickSubject(btn.dataset.pickSubject); return; }
+        if (btn.dataset.claim) { claimReward(btn.dataset.claim); return; }
+        if (btn.dataset.pin != null) {
+          const key = btn.dataset.pin;
+          if (key === "clear") backspacePin();
+          else if (key === "ok") submitPin();
+          else appendPinDigit(key);
+          return;
+        }
+      });
+
+      window.addEventListener("keydown", handlePinKeyboard);
+
+      document.getElementById("skipInteractionBtn").addEventListener("click", skipInteraction);
+      document.getElementById("inventoryBtn").addEventListener("click", openInventoryModal);
+      document.getElementById("closeInventoryBtn").addEventListener("click", closeInventoryModal);
+      document.getElementById("closePinBtn").addEventListener("click", closePinModal);
+      document.getElementById("closeSubjectBtn").addEventListener("click", closeSubjectPicker);
+      document.getElementById("subjectOverlay").addEventListener("click", (e) => {
+        if (e.target.id === "subjectOverlay") closeSubjectPicker();
+      });
+      document.getElementById("inventoryOverlay").addEventListener("click", e => {
+        if (e.target.id === "inventoryOverlay") closeInventoryModal();
+      });
+      document.getElementById("pinOverlay").addEventListener("click", e => {
+        if (e.target.id === "pinOverlay") closePinModal();
+      });
+      document.getElementById("watchTransmissionBtn").addEventListener("click", async () => {
+        const btn = document.getElementById("watchTransmissionBtn");
+        const url = btn?.dataset.videoUrl;
+        if (url) {
+          if (typeof window.__recordTransmissionWatch === "function") {
+            await window.__recordTransmissionWatch();
+          }
+          openPortal(url);
+          return;
+        }
+        showToast("No transmission available yet.");
+      });
+      document.getElementById("openWheelBtn").addEventListener("click", openWheelModal);
+      document.getElementById("closeWheelBtn").addEventListener("click", closeWheelModal);
+      document.getElementById("spinAgainBtn").addEventListener("click", spinWheel);
+      document.getElementById("wheelOverlay").addEventListener("click", e => {
+        if (e.target.id === "wheelOverlay") closeWheelModal();
+      });
+    }
+
+    function showProfileLoading() {
+      const playerName = document.getElementById("playerName");
+      const playerRank = document.getElementById("playerRank");
+      const bannerTitle = document.getElementById("bannerTitle");
+      if (playerName) playerName.textContent = "…";
+      if (playerRank) playerRank.textContent = "…";
+      if (bannerTitle) bannerTitle.textContent = "The Chronicles of …";
+    }
+
+    function renderProfilePanel() {
+      const name = getDisplayPlayerName();
+      const rank = CONFIG.player.rank || "Wanderer";
+
+      document.getElementById("playerName").textContent = name;
+      document.getElementById("playerRank").textContent = rank;
+
+      const bannerTitle = document.getElementById("bannerTitle");
+      if (bannerTitle) {
+        bannerTitle.textContent = `The Chronicles of ${name}`;
+      }
+
+      const avatarImg = document.querySelector(".avatar-frame img");
+      if (avatarImg) avatarImg.alt = name;
+
+      renderAttributes();
+      updateXPBar(state.xp);
+    }
+
+    function renderDefaults() {
+      renderProfilePanel();
+      updateInlineKnowledge(CONFIG.defaultInsight);
+      renderDialogue();
+      renderQuestList();
+      updateWheelStatus();
+    }
+
+    function renderDashboard() {
+      renderProfilePanel();
+      renderDialogue();
+      renderQuestList();
+      updateWheelStatus();
+    }
+
+    async function initStoryEngine() {
+      const defaultTurn = getDefaultStoryTurn();
+
+      if (typeof window.__initStoryEngine !== "function") {
+        renderInteractionChoices(defaultTurn.choices);
+        document.getElementById("dialogueText").textContent = defaultTurn.storyText;
+        return;
+      }
+
+      await window.__initStoryEngine(CONFIG, state, {
+        defaultTurn,
+        saveState,
+        setSubject,
+        renderQuestList,
+        openWheelModal,
+        openSubjectPicker,
+        showToast,
+        fetchInventory: window.__fetchInventory ?? (async () => []),
+        awardItemBySlug: window.__awardItemBySlug ?? (async () => null)
+      });
+    }
+
+    async function launchDashboard(session = null) {
+      loadState();
+      showProfileLoading();
+
+      try {
+        if (!session) {
+          try {
+            const { data: { session: currentSession } } = await supabase.auth.getSession();
+            session = currentSession;
+          } catch (err) {
+            console.warn("Failed to get session for launch:", err);
+          }
+        }
+
+        const profilePromise =
+          typeof window.__hydrateProfile === "function"
+            ? window.__hydrateProfile(CONFIG, state, session).catch(err => {
+                console.error("Profile hydration failed:", err);
+                return null;
+              })
+            : Promise.resolve(null);
+        const questPromise =
+          typeof window.__hydrateQuest === "function"
+            ? window.__hydrateQuest(state, todayKey(), session).catch(err => {
+                console.error("Quest hydration failed:", err);
+                return false;
+              })
+            : Promise.resolve(false);
+        const scrollPromise =
+          typeof window.__hydrateScrollOfKnowledge === "function"
+            ? window.__hydrateScrollOfKnowledge(CONFIG.defaultInsight, null, session).catch(err => {
+                console.error("Scroll hydration failed:", err);
+                return null;
+              })
+            : Promise.resolve(null);
+        const inventoryPromise =
+          typeof window.__hydrateInventory === "function"
+            ? window.__hydrateInventory(session).catch(err => {
+                console.error("Inventory hydration failed:", err);
+                return [];
+              })
+            : Promise.resolve([]);
+
+        // Render profile/quests immediately — do not block on story engine (AI can hang)
+        await Promise.all([profilePromise, questPromise, scrollPromise, inventoryPromise]);
+
+        renderDashboard();
+        ensureQuestTimerTick();
+
+        initStoryEngine().catch(err => {
+          console.error("Story engine initialization failed:", err);
+        });
+      } catch (err) {
+        console.error("Dashboard launch failed:", err);
+        renderDashboard();
+        ensureQuestTimerTick();
+      }
+    }
+
+    window.__gameConfig = CONFIG;
+    window.__gameState = state;
+    window.__todayKey = todayKey;
+    window.__launchDashboard = launchDashboard;
+    window.__renderDashboard = renderDashboard;
+    window.__renderDefaults = renderDefaults;
+    window.__saveState = saveState;
+    window.__setSubject = setSubject;
+    window.__renderQuestList = renderQuestList;
+    window.__openWheelModal = openWheelModal;
+    window.__openSubjectPicker = openSubjectPicker;
+    window.__showToast = showToast;
+
+    loadState();
+    renderAttributes();
+    updateXPBar(state.xp);
+    updateInlineKnowledge(CONFIG.defaultInsight);
+    renderQuestList();
+    updateWheelStatus();
+
+    if (!window.__eventsAttached) {
+      attachEvents();
+      window.__eventsAttached = true;
+    }
+
+    if (window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
+  </script>
+</body>
+</html>
