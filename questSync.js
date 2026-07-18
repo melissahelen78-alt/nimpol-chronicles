@@ -2,6 +2,47 @@
  * Supabase sync for quest session state, active quests, verification, and claims.
  */
 
+// Build Week demo progression: keep this intentionally small and tied to one quest.
+const BUILD_WEEK_GATE_QUEST = "math-morning-sheet";
+const BUILD_WEEK_LOCATION = "starlit-library";
+const BUILD_WEEK_DESTINATION_SUBJECT = "reading";
+const DEFAULT_WORLD_STATE = {
+  step: 0,
+  unlockedLocations: [],
+  unlockedSubjects: ["math"],
+  completedQuestIds: []
+};
+
+function uniqueStrings(values) {
+  return [...new Set((Array.isArray(values) ? values : []).filter(Boolean).map(String))];
+}
+
+export function normalizeWorldState(value = null) {
+  const source = value && typeof value === "object" ? value : {};
+  return {
+    step: Number.isFinite(Number(source.step)) ? Number(source.step) : DEFAULT_WORLD_STATE.step,
+    unlockedLocations: uniqueStrings(
+      source.unlockedLocations ?? source.unlocked_locations ?? DEFAULT_WORLD_STATE.unlockedLocations
+    ),
+    unlockedSubjects: uniqueStrings(
+      source.unlockedSubjects ?? source.unlocked_subjects ?? DEFAULT_WORLD_STATE.unlockedSubjects
+    ),
+    completedQuestIds: uniqueStrings(
+      source.completedQuestIds ?? source.completed_quest_ids ?? DEFAULT_WORLD_STATE.completedQuestIds
+    )
+  };
+}
+
+function serializeWorldState(value) {
+  const worldState = normalizeWorldState(value);
+  return {
+    step: worldState.step,
+    unlocked_locations: worldState.unlockedLocations,
+    unlocked_subjects: worldState.unlockedSubjects,
+    completed_quest_ids: worldState.completedQuestIds
+  };
+}
+
 export async function getSessionUser(client) {
   const {
     data: { session },
@@ -165,6 +206,15 @@ export function applyQuestProgressRow(row, gameState) {
   gameState.wheelSpins = row.wheel_spins ?? 0;
   gameState.wheelRotation = row.wheel_rotation ?? 0;
   gameState.lastResetDate = row.last_reset_date ?? gameState.lastResetDate;
+  gameState.worldState = normalizeWorldState(row.world_state);
+
+  // Build Week: a subject stored before the demo migration must not bypass its unlock.
+  if (
+    gameState.selectedSubject &&
+    !gameState.worldState.unlockedSubjects.includes(gameState.selectedSubject)
+  ) {
+    gameState.selectedSubject = null;
+  }
 }
 
 export function applyActiveQuests(rows, gameState) {
@@ -175,7 +225,7 @@ export function applyActiveQuests(rows, gameState) {
 }
 
 export function questProgressPayload(userId, gameState) {
-  return {
+  const payload = {
     user_id: userId,
     selected_subject: gameState.selectedSubject,
     highlighted_quest_id: gameState.highlightedQuestId,
@@ -187,6 +237,14 @@ export function questProgressPayload(userId, gameState) {
     wheel_rotation: gameState.wheelRotation ?? 0,
     last_reset_date: gameState.lastResetDate
   };
+
+  // Build Week: step-zero clients omit world_state so stale tabs cannot relock
+  // the one-step demo world after the dedicated claim write has advanced it.
+  if (normalizeWorldState(gameState.worldState).step > 0) {
+    payload.world_state = serializeWorldState(gameState.worldState);
+  }
+
+  return payload;
 }
 
 export async function upsertQuestProgress(client, userId, gameState) {
@@ -200,11 +258,19 @@ export async function upsertQuestProgress(client, userId, gameState) {
 /**
  * Ensure today's active_quest rows exist for a subject (or all subjects if null).
  */
-export async function ensureDailyQuests(client, userId, questDate, subject = null) {
+export async function ensureDailyQuests(
+  client,
+  userId,
+  questDate,
+  subject = null,
+  completedQuestIds = []
+) {
   const templates = await fetchQuestTemplates(client);
-  const filtered = subject
-    ? templates.filter((t) => t.subject === subject)
-    : templates;
+  const completed = new Set(completedQuestIds ?? []);
+  // Build Week: lifetime-completed templates are never assigned again on a new day.
+  const filtered = templates.filter(
+    (t) => (!subject || t.subject === subject) && !completed.has(t.slug)
+  );
 
   if (!filtered.length) return [];
 
@@ -326,6 +392,46 @@ export async function recordQuestClaim(
     .eq("id", userId);
 
   if (xpError) throw xpError;
+
+  if (questId !== BUILD_WEEK_GATE_QUEST) {
+    return { worldState: null, unlockedDestination: false };
+  }
+
+  // Build Week: this is a separate, fallible write after the normal claim writes.
+  // It is deliberately not described as atomic because no database RPC is used.
+  const progress = await fetchQuestProgress(client, userId);
+  const currentWorldState = normalizeWorldState(progress?.world_state);
+  const unlockedDestination =
+    !currentWorldState.unlockedLocations.includes(BUILD_WEEK_LOCATION) ||
+    !currentWorldState.unlockedSubjects.includes(BUILD_WEEK_DESTINATION_SUBJECT);
+  const worldState = {
+    step: Math.max(1, currentWorldState.step),
+    unlockedLocations: uniqueStrings([
+      ...currentWorldState.unlockedLocations,
+      BUILD_WEEK_LOCATION
+    ]),
+    unlockedSubjects: uniqueStrings([
+      ...currentWorldState.unlockedSubjects,
+      BUILD_WEEK_DESTINATION_SUBJECT
+    ]),
+    completedQuestIds: uniqueStrings([
+      ...currentWorldState.completedQuestIds,
+      BUILD_WEEK_GATE_QUEST
+    ])
+  };
+
+  const { error: worldError } = await client
+    .from("quest_progress")
+    .upsert(
+      {
+        user_id: userId,
+        world_state: serializeWorldState(worldState)
+      },
+      { onConflict: "user_id" }
+    );
+
+  if (worldError) throw worldError;
+  return { worldState, unlockedDestination };
 }
 
 export async function hydrateQuestState(client, gameState, todayKey, session = null) {
@@ -343,16 +449,29 @@ export async function hydrateQuestState(client, gameState, todayKey, session = n
 
   gameState.questTemplates = templates;
   gameState.subjects = buildSubjectsFromTemplates(templates);
+  gameState.worldState = normalizeWorldState(gameState.worldState);
 
   if (gameState.selectedSubject) {
-    await ensureDailyQuests(client, user.id, todayKey, gameState.selectedSubject);
+    await ensureDailyQuests(
+      client,
+      user.id,
+      todayKey,
+      gameState.selectedSubject,
+      gameState.worldState.completedQuestIds
+    );
   }
 
   const activeRows = await fetchActiveQuests(client, user.id, todayKey);
   applyActiveQuests(activeRows, gameState);
 
   if (gameState.lastResetDate === todayKey && !gameState.activeQuests.length && gameState.selectedSubject) {
-    const ensured = await ensureDailyQuests(client, user.id, todayKey, gameState.selectedSubject);
+    const ensured = await ensureDailyQuests(
+      client,
+      user.id,
+      todayKey,
+      gameState.selectedSubject,
+      gameState.worldState.completedQuestIds
+    );
     applyActiveQuests(ensured, gameState);
   }
 

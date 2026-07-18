@@ -1613,10 +1613,10 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
     window.__recordQuestClaim = async (questId, rewardXp, newXpTotal, claimDate, activeQuestId = null) => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return false;
+      if (!session?.user) throw new Error("Not signed in");
 
       try {
-        await recordQuestClaim(
+        return await recordQuestClaim(
           supabase,
           session.user.id,
           questId,
@@ -1625,7 +1625,6 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
           newXpTotal,
           activeQuestId
         );
-        return true;
       } catch (err) {
         console.warn("Supabase claim sync failed:", err);
         throw err;
@@ -1635,7 +1634,13 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
     window.__ensureDailyQuests = async (gameState, todayKey, subject) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return [];
-      const rows = await ensureDailyQuests(supabase, session.user.id, todayKey, subject);
+      const rows = await ensureDailyQuests(
+        supabase,
+        session.user.id,
+        todayKey,
+        subject,
+        gameState.worldState?.completedQuestIds ?? []
+      );
       applyActiveQuests(rows, gameState);
       return rows;
     };
@@ -1821,6 +1826,15 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
   <script>
     const CONFIG = {
+      // Build Week demo: one fixed quest permanently opens one existing subject.
+      buildWeek: {
+        gateQuestSlug: "math-morning-sheet",
+        destinationLocationSlug: "starlit-library",
+        destinationLocationLabel: "Starlit Library",
+        startingSubjectSlug: "math",
+        destinationSubjectSlug: "reading",
+        destinationSubjectLabel: "Reading"
+      },
       player: { name: "NIMPOL", rank: "Wanderer", xp: 1448, xpToNextRank: 2000 },
       attributes: [
         { id: "mana",       label: "Mana",       current: 62, max: 100, diamond: "mana",       barClass: "bar-mana" },
@@ -1879,7 +1893,15 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       lastResetDate: todayKey(),
       activeQuests: [],
       questTemplates: [],
-      subjects: []
+      subjects: [],
+      // Build Week: mirrors quest_progress.world_state and survives daily resets.
+      worldState: {
+        step: 0,
+        unlockedLocations: [],
+        unlockedSubjects: [CONFIG.buildWeek.startingSubjectSlug],
+        completedQuestIds: []
+      },
+      recentCompletion: null
     };
 
     function getDisplayPlayerName() {
@@ -1930,6 +1952,20 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
           state = { ...state, ...p };
         }
       } catch (e) { console.warn("Load failed", e); }
+
+      // Build Week: tolerate older localStorage records created before world state existed.
+      state.worldState = {
+        step: Number(state.worldState?.step) || 0,
+        unlockedLocations: Array.isArray(state.worldState?.unlockedLocations)
+          ? state.worldState.unlockedLocations
+          : [],
+        unlockedSubjects: Array.isArray(state.worldState?.unlockedSubjects)
+          ? state.worldState.unlockedSubjects
+          : [CONFIG.buildWeek.startingSubjectSlug],
+        completedQuestIds: Array.isArray(state.worldState?.completedQuestIds)
+          ? state.worldState.completedQuestIds
+          : []
+      };
 
       if (state.lastResetDate !== todayKey()) {
         state.claimedToday = [];
@@ -2050,7 +2086,9 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
     }
 
     function mapTemplateToCard(t) {
-      const claimed = state.claimedToday.includes(t.slug);
+      const claimed =
+        state.claimedToday.includes(t.slug) ||
+        state.worldState.completedQuestIds.includes(t.slug);
       return {
         id: t.slug,
         subject: t.subject,
@@ -2073,21 +2111,36 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       return !!CONFIG.questTemplates[id];
     }
 
+    // Build Week: subjects keep their existing identity; this only gates picker access.
+    function isSubjectUnlocked(id) {
+      return state.worldState.unlockedSubjects.includes(id);
+    }
+
+    function isQuestPermanentlyCompleted(id) {
+      return state.worldState.completedQuestIds.includes(id);
+    }
+
     function getSubjectCards(id) {
-      const active = (state.activeQuests ?? []).filter((q) => q.subject === id);
+      const active = (state.activeQuests ?? []).filter(
+        (q) => q.subject === id && !isQuestPermanentlyCompleted(q.id)
+      );
       if (active.length) return active.map((q) => syncLocalQuestTimer({ ...q }));
 
-      const fromTemplates = (state.questTemplates ?? []).filter((t) => t.subject === id);
+      const fromTemplates = (state.questTemplates ?? []).filter(
+        (t) => t.subject === id && !isQuestPermanentlyCompleted(t.slug)
+      );
       if (fromTemplates.length) return fromTemplates.map(mapTemplateToCard);
 
-      return (CONFIG.questTemplates[id] || []).map((c) => ({
-        ...c,
-        subject: id,
-        toolName: c.toolName ?? "Quest",
-        verificationType: "instant",
-        status: state.claimedToday.includes(c.id) ? "claimed" : "assigned",
-        activeQuestId: null
-      }));
+      return (CONFIG.questTemplates[id] || [])
+        .filter((c) => !isQuestPermanentlyCompleted(c.id))
+        .map((c) => ({
+          ...c,
+          subject: id,
+          toolName: c.toolName ?? "Quest",
+          verificationType: "instant",
+          status: state.claimedToday.includes(c.id) ? "claimed" : "assigned",
+          activeQuestId: null
+        }));
     }
 
     function getQuestById(id) {
@@ -2104,8 +2157,15 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       const catalog = (state.subjects ?? []).map((s) => s.slug);
       const slugs = catalog.length ? catalog : Object.keys(CONFIG.questTemplates);
 
-      return slugs.filter((id) =>
-        getSubjectCards(id).some((c) => c.status !== "claimed" && !state.claimedToday.includes(c.id))
+      return slugs.filter(
+        (id) =>
+          isSubjectUnlocked(id) &&
+          getSubjectCards(id).some(
+            (c) =>
+              c.status !== "claimed" &&
+              !state.claimedToday.includes(c.id) &&
+              !isQuestPermanentlyCompleted(c.id)
+          )
       );
     }
 
@@ -2123,12 +2183,16 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
       grid.innerHTML = subjects
         .map(
-          (s) => `
-        <button class="subject-picker-btn" type="button" data-pick-subject="${s.slug}">
+          (s) => {
+            const unlocked = isSubjectUnlocked(s.slug);
+            return `
+        <button class="subject-picker-btn" type="button" data-pick-subject="${s.slug}"
+          ${unlocked ? "" : 'disabled aria-disabled="true" title="Complete Morning Math Runes to unlock"'}>
           <span class="subject-picker-icon">${s.icon ?? "📚"}</span>
           <span>${s.label ?? s.slug}</span>
         </button>
-      `
+      `;
+          }
         )
         .join("");
     }
@@ -2147,6 +2211,10 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
     }
 
     async function pickSubject(slug) {
+      if (!isSubjectUnlocked(slug)) {
+        showToast("That subject is still locked.");
+        return;
+      }
       closeSubjectPicker();
       await setSubject(slug, false);
       document.getElementById("questDrawer")?.classList.add("open");
@@ -2446,7 +2514,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
     }
 
     async function setSubject(id, fromStory = false) {
-      if (!isKnownSubject(id)) return;
+      if (!isKnownSubject(id) || !isSubjectUnlocked(id)) return;
 
       state.selectedSubject = id;
 
@@ -2506,21 +2574,56 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       CONFIG.player.xp = state.xp;
       saveState();
 
+      let claimSyncFailed = false;
       if (typeof window.__recordQuestClaim === "function") {
         try {
-          await window.__recordQuestClaim(
+          const claimResult = await window.__recordQuestClaim(
             questId,
             quest.reward,
             state.xp,
             todayKey(),
             quest.activeQuestId ?? null
           );
+
+          // Build Week: reveal Reading only after Supabase confirms world-state persistence.
+          if (claimResult?.worldState) {
+            state.worldState = claimResult.worldState;
+            state.recentCompletion = {
+              questId,
+              questTitle: quest.title,
+              subject: quest.subject,
+              unlockedLocationSlug: CONFIG.buildWeek.destinationLocationSlug,
+              unlockedLocationLabel: CONFIG.buildWeek.destinationLocationLabel,
+              unlockedSubjectSlug: CONFIG.buildWeek.destinationSubjectSlug,
+              unlockedSubjectLabel: CONFIG.buildWeek.destinationSubjectLabel
+            };
+            saveState();
+            renderQuestList();
+            renderSubjectPickerGrid();
+            showToast(`${CONFIG.buildWeek.destinationSubjectLabel} unlocked!`);
+
+            if (window.__storyEngine?.acknowledgeCompletion) {
+              await window.__storyEngine.acknowledgeCompletion();
+            }
+          }
         } catch (err) {
-          showToast("Claim saved locally; cloud sync failed.");
+          claimSyncFailed = true;
+          if (questId === CONFIG.buildWeek.gateQuestSlug) {
+            showToast("Quest claimed, but the world unlock failed. Refreshing...");
+            // Build Week writes are not atomic; rehydrate the confirmed server state.
+            if (typeof window.__hydrateQuest === "function") {
+              await window.__hydrateQuest(state, todayKey());
+              saveState();
+              renderQuestList();
+              renderSubjectPickerGrid();
+            }
+          } else {
+            showToast("Claim saved locally; cloud sync failed.");
+          }
         }
       }
 
-      if (typeof window.__maybeAwardLoot === "function") {
+      if (!claimSyncFailed && typeof window.__maybeAwardLoot === "function") {
         try {
           const item = await window.__maybeAwardLoot("quest");
           if (item) showToast(`Loot found: ${item.icon ?? "🎁"} ${item.name}!`);
@@ -2529,7 +2632,9 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         }
       }
 
-      showToast(`+${quest.reward} XP earned!`);
+      if (!claimSyncFailed && questId !== CONFIG.buildWeek.gateQuestSlug) {
+        showToast(`+${quest.reward} XP earned!`);
+      }
       updateInlineKnowledge(getKnowledgeFact());
     }
 

@@ -7,11 +7,15 @@ import { getSessionUser } from "./questSync.js";
 const VALID_ACTIONS = new Set(["continue", "select_subject", "open_quests", "spin_wheel"]);
 
 export function getValidSubjectSlugs(gameState) {
-  const fromSubjects = (gameState?.subjects ?? []).map((s) => s.slug);
+  const unlocked = gameState?.worldState?.unlockedSubjects;
+  const isUnlocked = (slug) => !Array.isArray(unlocked) || unlocked.includes(slug);
+  const fromSubjects = (gameState?.subjects ?? [])
+    .map((s) => s.slug)
+    .filter(isUnlocked);
   if (fromSubjects.length) return new Set(fromSubjects);
   const fromTemplates = (gameState?.questTemplates ?? [])
     .map((t) => t.subject)
-    .filter(Boolean);
+    .filter((slug) => slug && isUnlocked(slug));
   return new Set(fromTemplates);
 }
 
@@ -123,12 +127,19 @@ export async function recordStoryChoice(client, turnId, choiceId, choiceLabel) {
   return data;
 }
 
-function summarizeTemplatesBySubject(gameState) {
+function summarizeTemplatesBySubject(gameState, completedQuestIds, unlockedSubjectSlugs) {
   const map = new Map();
   for (const t of gameState.questTemplates ?? []) {
-    if (!t.subject) continue;
+    if (
+      !t.subject ||
+      completedQuestIds.has(t.slug) ||
+      !unlockedSubjectSlugs.has(t.subject)
+    ) {
+      continue;
+    }
     if (!map.has(t.subject)) map.set(t.subject, []);
     map.get(t.subject).push({
+      id: t.slug,
       title: t.title,
       toolName: t.tool_name,
       rewardXp: t.reward_xp
@@ -143,12 +154,26 @@ export function buildStoryContext(config, gameState, activity, history, lastChoi
     return Math.round((Date.now() - new Date(iso).getTime()) / 36e5);
   };
 
-  const subjects = (gameState.subjects ?? []).map((s) => ({
-    slug: s.slug,
-    label: s.label,
-    icon: s.icon,
-    questCount: s.questCount
-  }));
+  const worldState = gameState.worldState ?? {};
+  const completedQuestIds = new Set(worldState.completedQuestIds ?? []);
+  const unlockedSubjectSlugs = new Set(
+    worldState.unlockedSubjects ?? (gameState.subjects ?? []).map((s) => s.slug)
+  );
+  const subjects = (gameState.subjects ?? [])
+    .filter((s) => unlockedSubjectSlugs.has(s.slug))
+    .map((s) => ({
+      slug: s.slug,
+      label: s.label,
+      icon: s.icon,
+      questCount: (gameState.questTemplates ?? []).filter(
+        (t) => t.subject === s.slug && !completedQuestIds.has(t.slug)
+      ).length
+    }));
+  const availableTemplates = (gameState.questTemplates ?? []).filter(
+    (t) =>
+      !completedQuestIds.has(t.slug) &&
+      unlockedSubjectSlugs.has(t.subject)
+  );
 
   return {
     player: {
@@ -178,10 +203,26 @@ export function buildStoryContext(config, gameState, activity, history, lastChoi
         status: q.status,
         verificationType: q.verificationType,
         reward: q.reward
-      })),
-      templatesBySubject: summarizeTemplatesBySubject(gameState),
-      availableTools: [...new Set((gameState.questTemplates ?? []).map((t) => t.tool_name))]
+      })).filter(
+        (q) =>
+          !completedQuestIds.has(q.id) &&
+          unlockedSubjectSlugs.has(q.subject)
+      ),
+      templatesBySubject: summarizeTemplatesBySubject(
+        gameState,
+        completedQuestIds,
+        unlockedSubjectSlugs
+      ),
+      availableTools: [...new Set(availableTemplates.map((t) => t.tool_name).filter(Boolean))]
     },
+    // Build Week: durable progression plus a one-shot completion event for Nutty.
+    worldState: {
+      step: worldState.step ?? 0,
+      unlockedLocations: worldState.unlockedLocations ?? [],
+      unlockedSubjects: [...unlockedSubjectSlugs]
+    },
+    completedQuestIds: [...completedQuestIds],
+    recentCompletion: gameState.recentCompletion ?? null,
     inventory: inventory.map((row) => ({
       name: row.items?.name ?? row.name,
       rarity: row.items?.rarity ?? row.rarity,
@@ -221,6 +262,35 @@ export function generateFallbackTurn(context, { skipped = false, validSubjectSlu
   const subject = context.quests?.selectedSubject;
   const lastLabel = context.lastChoice?.label;
   const subjects = context.subjects ?? [];
+  const recentCompletion = context.recentCompletion;
+
+  // Build Week: keep the core completion loop compelling even without OpenAI.
+  if (recentCompletion) {
+    const questTitle = recentCompletion.questTitle ?? "your quest";
+    const locationLabel = recentCompletion.unlockedLocationLabel ?? "a new place";
+    const subjectLabel = recentCompletion.unlockedSubjectLabel ?? "a new subject";
+    const subjectSlug = recentCompletion.unlockedSubjectSlug;
+    const choices = [
+      ...(subjectSlug && validSubjectSlugs.has(subjectSlug)
+        ? [{
+            id: `visit-${subjectSlug}`,
+            label: `Choose ${subjectLabel}`,
+            action: "select_subject",
+            value: subjectSlug
+          }]
+        : []),
+      { id: "open-new-quests", label: "View Quests", action: "open_quests" },
+      { id: "continue-after-unlock", label: "Press Onward", action: "continue" }
+    ];
+
+    return validateStoryTurn(
+      {
+        storyText: `Nutty cheers! You completed ${questTitle}. The world shimmers, ${locationLabel} opens, and ${subjectLabel} is now unlocked!`,
+        choices
+      },
+      validSubjectSlugs
+    );
+  }
 
   if (skipped && subjects.length) {
     return validateStoryTurn(
@@ -453,7 +523,10 @@ export function createStoryEngine(client, config, gameState, callbacks = {}) {
   async function startNewTurn({ skipped = false, lastChoice = null } = {}) {
     loading = true;
 
-    const fallback = defaultTurn ?? generateFallbackTurn({ player: { name: config.player.name } });
+    const immediateContext = buildStoryContext(config, gameState, null, [], lastChoice, []);
+    const fallback = gameState.recentCompletion
+      ? generateFallbackTurn(immediateContext, { validSubjectSlugs: subjectSlugs() })
+      : defaultTurn ?? generateFallbackTurn({ player: { name: config.player.name } });
     renderStoryTurn(fallback);
 
     try {
@@ -499,16 +572,36 @@ export function createStoryEngine(client, config, gameState, callbacks = {}) {
       );
 
       renderStoryTurn(turn);
+      return true;
     } catch (err) {
       console.warn("Story bootstrap failed:", err);
+      return false;
     } finally {
       loading = false;
     }
   }
 
+  async function acknowledgeCompletion() {
+    if (!gameState.recentCompletion || loading) return false;
+
+    // Build Week: create and persist a dedicated turn immediately after the claim.
+    const acknowledged = await startNewTurn();
+    if (acknowledged) {
+      gameState.recentCompletion = null;
+      saveState();
+    }
+    return acknowledged;
+  }
+
   async function bootstrap() {
     if (defaultTurn) {
       renderStoryTurn(defaultTurn);
+    }
+
+    // Build Week: retry a persisted one-shot acknowledgement after refresh.
+    if (gameState.recentCompletion) {
+      await acknowledgeCompletion();
+      return;
     }
 
     loading = true;
@@ -595,6 +688,7 @@ export function createStoryEngine(client, config, gameState, callbacks = {}) {
   return {
     bootstrap,
     handleChoiceClick,
+    acknowledgeCompletion,
     skipToSubjects,
     renderCurrentTurn,
     get currentTurnRow() {
