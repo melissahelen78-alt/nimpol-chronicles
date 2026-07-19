@@ -654,46 +654,6 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         inset 0 2px 5px rgba(0, 0, 0, 0.5);
     }
 
-    .btn-skip {
-      display: block;
-      width: 100%;
-      max-width: 320px;
-      margin: 0 auto;
-      min-height: 48px;
-      padding: 0 20px;
-      cursor: pointer;
-      font-family: var(--readable);
-      font-weight: 800;
-      font-size: clamp(14px, 1.4vw, 17px);
-      letter-spacing: 0.5px;
-      color: #e8f0fa;
-      text-shadow: 0 2px 3px #000000;
-      background: linear-gradient(to bottom, #4a5364 0%, #252b38 100%);
-      border: 3px solid var(--gold);
-      border-top-color: var(--gold-light);
-      border-bottom-color: var(--gold-dark);
-      border-radius: 6px;
-      box-shadow:
-        0 4px 0 #071224,
-        0 6px 10px rgba(0, 0, 0, 0.5),
-        inset 0 1px 1px rgba(255, 255, 255, 0.3);
-      transition: transform 0.1s ease, box-shadow 0.1s ease;
-    }
-
-    .btn-skip:hover {
-      background: #4a5364;
-      border-color: #d1b45c;
-      border-top-color: #fff099;
-    }
-
-    .btn-skip:active {
-      transform: translateY(3px);
-      box-shadow:
-        0 1px 0 #071224,
-        0 2px 4px rgba(0, 0, 0, 0.6),
-        inset 0 2px 5px rgba(0, 0, 0, 0.5);
-    }
-
     /* Discovery scrolls */
     .discovery-section {
       flex: 1;
@@ -1450,8 +1410,6 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
         <div class="action-row" id="interaction-buttons"></div>
 
-        <button class="btn-skip" id="skipInteractionBtn" type="button">Skip Interaction</button>
-
         <div class="quest-drawer" id="questDrawer">
           <div class="quest-mini-grid" id="questList"></div>
         </div>
@@ -1761,7 +1719,13 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       } else if (typeof window.__initStoryEngine === "function") {
         window.__initStoryEngine(config, gameState, {
           defaultTurn: window.__validateStoryTurn
-            ? window.__validateStoryTurn(config.defaultStory)
+            ? window.__validateStoryTurn(
+                config.defaultStory,
+                new Set(
+                  gameState.worldState?.unlockedSubjects ??
+                    [config.buildWeek.startingSubjectSlug]
+                )
+              )
             : config.defaultStory,
           saveState: window.__saveState,
           setSubject: window.__setSubject,
@@ -1826,9 +1790,9 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
   <script>
     const CONFIG = {
-      // Build Week demo: one fixed quest permanently opens one existing subject.
+      // Build Week demo: fixed Math quests feed one narrowly scoped staged story.
       buildWeek: {
-        gateQuestSlug: "math-morning-sheet",
+        mathQuestSlugs: ["math-ba-online", "math-ba-workbook", "math-morning-sheet"],
         destinationLocationSlug: "starlit-library",
         destinationLocationLabel: "Starlit Library",
         startingSubjectSlug: "math",
@@ -1848,9 +1812,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       defaultStory: {
         storyText: "Good morning, Nimpol! Your focus crystal hums softly. How shall we begin today's chronicle?",
         choices: [
-          { id: "energetic", label: "Charge Ahead", action: "continue" },
-          { id: "strategize", label: "Plan First", action: "continue" },
-          { id: "scout", label: "Scout Ahead", action: "continue" }
+          { id: "im-ready", label: "I'm Ready", action: "select_subject", value: "math" }
         ]
       },
       questTemplates: {
@@ -1897,6 +1859,8 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       // Build Week: mirrors quest_progress.world_state and survives daily resets.
       worldState: {
         step: 0,
+        stageTurns: 0,
+        pendingStoryKey: null,
         unlockedLocations: [],
         unlockedSubjects: [CONFIG.buildWeek.startingSubjectSlug],
         completedQuestIds: []
@@ -1956,6 +1920,8 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       // Build Week: tolerate older localStorage records created before world state existed.
       state.worldState = {
         step: Number(state.worldState?.step) || 0,
+        stageTurns: Math.max(0, Number(state.worldState?.stageTurns) || 0),
+        pendingStoryKey: state.worldState?.pendingStoryKey ?? null,
         unlockedLocations: Array.isArray(state.worldState?.unlockedLocations)
           ? state.worldState.unlockedLocations
           : [],
@@ -2120,7 +2086,16 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       return state.worldState.completedQuestIds.includes(id);
     }
 
+    // Build Week: subject selection and quest-card visibility are separate stages.
+    function shouldShowQuestCards(id) {
+      if (id === CONFIG.buildWeek.startingSubjectSlug) return state.worldState.step === 1;
+      if (id === CONFIG.buildWeek.destinationSubjectSlug) return state.worldState.step === 5;
+      return true;
+    }
+
     function getSubjectCards(id) {
+      if (!shouldShowQuestCards(id)) return [];
+
       const active = (state.activeQuests ?? []).filter(
         (q) => q.subject === id && !isQuestPermanentlyCompleted(q.id)
       );
@@ -2187,7 +2162,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
             const unlocked = isSubjectUnlocked(s.slug);
             return `
         <button class="subject-picker-btn" type="button" data-pick-subject="${s.slug}"
-          ${unlocked ? "" : 'disabled aria-disabled="true" title="Complete Morning Math Runes to unlock"'}>
+          ${unlocked ? "" : 'disabled aria-disabled="true" title="Complete a Math quest to unlock"'}>
           <span class="subject-picker-icon">${s.icon ?? "📚"}</span>
           <span>${s.label ?? s.slug}</span>
         </button>
@@ -2216,9 +2191,15 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         return;
       }
       closeSubjectPicker();
-      await setSubject(slug, false);
-      document.getElementById("questDrawer")?.classList.add("open");
-      showToast(`Pick a ${slug} quest below!`);
+      if (window.__storyEngine?.enterSubjectPath) {
+        await window.__storyEngine.enterSubjectPath(slug);
+      } else {
+        await setSubject(slug, false);
+      }
+
+      if (shouldShowQuestCards(slug)) {
+        showToast(`Pick a ${slug} quest below!`);
+      }
     }
 
     function buildQuestActionButtons(card) {
@@ -2429,7 +2410,13 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
     function getDefaultStoryTurn() {
       let turn;
       if (typeof window.__validateStoryTurn === "function") {
-        turn = window.__validateStoryTurn(CONFIG.defaultStory);
+        turn = window.__validateStoryTurn(
+          CONFIG.defaultStory,
+          new Set(
+            state.worldState?.unlockedSubjects ??
+              [CONFIG.buildWeek.startingSubjectSlug]
+          )
+        );
       } else {
         turn = { ...CONFIG.defaultStory, choices: [...CONFIG.defaultStory.choices] };
       }
@@ -2472,7 +2459,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       const drawer = document.getElementById("questDrawer");
       const list = document.getElementById("questList");
 
-      if (!state.selectedSubject) {
+      if (!state.selectedSubject || !shouldShowQuestCards(state.selectedSubject)) {
         drawer.classList.remove("open");
         list.innerHTML = "";
         return;
@@ -2505,20 +2492,12 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       }
     }
 
-    function skipInteraction() {
-      if (window.__storyEngine?.skipToSubjects) {
-        window.__storyEngine.skipToSubjects();
-      } else {
-        showToast("Choose a subject path to begin your quests.");
-      }
-    }
-
     async function setSubject(id, fromStory = false) {
       if (!isKnownSubject(id) || !isSubjectUnlocked(id)) return;
 
       state.selectedSubject = id;
 
-      if (typeof window.__ensureDailyQuests === "function") {
+      if (shouldShowQuestCards(id) && typeof window.__ensureDailyQuests === "function") {
         try {
           await window.__ensureDailyQuests(state, todayKey(), id);
         } catch (err) {
@@ -2526,7 +2505,9 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         }
       }
 
-      const first = getSubjectCards(id).find((c) => c.status !== "claimed" && !state.claimedToday.includes(c.id));
+      const first = shouldShowQuestCards(id)
+        ? getSubjectCards(id).find((c) => c.status !== "claimed" && !state.claimedToday.includes(c.id))
+        : null;
       state.highlightedQuestId = first ? first.id : null;
       if (fromStory) state.lastWheelResult = null;
       saveState();
@@ -2575,6 +2556,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       saveState();
 
       let claimSyncFailed = false;
+      let demoProgressed = false;
       if (typeof window.__recordQuestClaim === "function") {
         try {
           const claimResult = await window.__recordQuestClaim(
@@ -2585,22 +2567,18 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
             quest.activeQuestId ?? null
           );
 
-          // Build Week: reveal Reading only after Supabase confirms world-state persistence.
-          if (claimResult?.worldState) {
+          // Build Week: UI mirrors the Math-completion transition owned by questSync.
+          if (claimResult?.demoProgressed && claimResult.worldState) {
+            demoProgressed = true;
             state.worldState = claimResult.worldState;
             state.recentCompletion = {
               questId,
               questTitle: quest.title,
-              subject: quest.subject,
-              unlockedLocationSlug: CONFIG.buildWeek.destinationLocationSlug,
-              unlockedLocationLabel: CONFIG.buildWeek.destinationLocationLabel,
-              unlockedSubjectSlug: CONFIG.buildWeek.destinationSubjectSlug,
-              unlockedSubjectLabel: CONFIG.buildWeek.destinationSubjectLabel
+              subject: quest.subject
             };
             saveState();
             renderQuestList();
             renderSubjectPickerGrid();
-            showToast(`${CONFIG.buildWeek.destinationSubjectLabel} unlocked!`);
 
             if (window.__storyEngine?.acknowledgeCompletion) {
               await window.__storyEngine.acknowledgeCompletion();
@@ -2608,14 +2586,24 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
           }
         } catch (err) {
           claimSyncFailed = true;
-          if (questId === CONFIG.buildWeek.gateQuestSlug) {
-            showToast("Quest claimed, but the world unlock failed. Refreshing...");
+          if (CONFIG.buildWeek.mathQuestSlugs.includes(questId)) {
+            showToast("Quest claimed, but story progress failed. Refreshing...");
             // Build Week writes are not atomic; rehydrate the confirmed server state.
             if (typeof window.__hydrateQuest === "function") {
               await window.__hydrateQuest(state, todayKey());
+              if (String(state.worldState.pendingStoryKey ?? "").startsWith("completion-ack:")) {
+                state.recentCompletion = {
+                  questId,
+                  questTitle: quest.title,
+                  subject: quest.subject
+                };
+              }
               saveState();
               renderQuestList();
               renderSubjectPickerGrid();
+              if (window.__storyEngine?.acknowledgeCompletion) {
+                await window.__storyEngine.acknowledgeCompletion();
+              }
             }
           } else {
             showToast("Claim saved locally; cloud sync failed.");
@@ -2632,7 +2620,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         }
       }
 
-      if (!claimSyncFailed && questId !== CONFIG.buildWeek.gateQuestSlug) {
+      if (!claimSyncFailed && !demoProgressed) {
         showToast(`+${quest.reward} XP earned!`);
       }
       updateInlineKnowledge(getKnowledgeFact());
@@ -2838,7 +2826,6 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
       window.addEventListener("keydown", handlePinKeyboard);
 
-      document.getElementById("skipInteractionBtn").addEventListener("click", skipInteraction);
       document.getElementById("inventoryBtn").addEventListener("click", openInventoryModal);
       document.getElementById("closeInventoryBtn").addEventListener("click", closeInventoryModal);
       document.getElementById("closePinBtn").addEventListener("click", closePinModal);

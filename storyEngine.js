@@ -2,9 +2,35 @@
  * AI-driven Chronicles interaction loop.
  */
 
-import { getSessionUser } from "./questSync.js";
+import { getSessionUser, persistWorldState } from "./questSync.js";
 
 const VALID_ACTIONS = new Set(["continue", "select_subject", "open_quests", "spin_wheel"]);
+const BUILD_WEEK_MATH = "math";
+const BUILD_WEEK_READING = "reading";
+const BUILD_WEEK_LOCATION = "starlit-library";
+const READY_CHOICE = {
+  id: "im-ready",
+  label: "I'm Ready",
+  action: "select_subject",
+  value: BUILD_WEEK_MATH
+};
+
+const BUILD_WEEK_FINAL_TURNS = {
+  "math-intro-1": 1,
+  "math-intro-2": 2,
+  "completion-ack": 1,
+  "discovery-1": 1,
+  "discovery-2": 2,
+  "library-reveal": 1
+};
+
+function pendingStoryKind(key) {
+  return String(key ?? "").split(":")[0];
+}
+
+function uniqueValues(values) {
+  return [...new Set((values ?? []).filter(Boolean))];
+}
 
 export function getValidSubjectSlugs(gameState) {
   const unlocked = gameState?.worldState?.unlockedSubjects;
@@ -26,8 +52,13 @@ export function normalizeChoices(rawChoices, validSubjectSlugs = new Set()) {
     .slice(0, 4)
     .map((choice, index) => {
       const action = VALID_ACTIONS.has(choice?.action) ? choice.action : "continue";
+      const isReadyChoice =
+        choice?.id === READY_CHOICE.id &&
+        action === READY_CHOICE.action &&
+        choice?.value === READY_CHOICE.value;
       const value =
-        action === "select_subject" && validSubjectSlugs.has(choice?.value)
+        (action === "select_subject" || action === "open_quests") &&
+        (validSubjectSlugs.has(choice?.value) || isReadyChoice)
           ? choice.value
           : null;
 
@@ -47,8 +78,8 @@ export function validateStoryTurn(raw, validSubjectSlugs = new Set()) {
   }
 
   const choices = normalizeChoices(raw.choices, validSubjectSlugs);
-  if (choices.length < 2) {
-    throw new Error("Invalid story turn: need at least 2 choices");
+  if (choices.length < 1) {
+    throw new Error("Invalid story turn: need at least 1 choice");
   }
 
   return {
@@ -218,9 +249,17 @@ export function buildStoryContext(config, gameState, activity, history, lastChoi
     // Build Week: durable progression plus a one-shot completion event for Nutty.
     worldState: {
       step: worldState.step ?? 0,
+      stageTurns: worldState.stageTurns ?? 0,
+      pendingStoryKey: worldState.pendingStoryKey ?? null,
       unlockedLocations: worldState.unlockedLocations ?? [],
       unlockedSubjects: [...unlockedSubjectSlugs]
     },
+    buildWeek: {
+      step: worldState.step ?? 0,
+      stageTurns: worldState.stageTurns ?? 0,
+      pendingStoryKey: worldState.pendingStoryKey ?? null
+    },
+    openingStoryText: config.defaultStory?.storyText ?? null,
     completedQuestIds: [...completedQuestIds],
     recentCompletion: gameState.recentCompletion ?? null,
     inventory: inventory.map((row) => ({
@@ -255,6 +294,74 @@ function buildSubjectChoices(subjects, max = 4) {
   }));
 }
 
+function buildWeekTurn(context, validSubjectSlugs = new Set()) {
+  const key = context.buildWeek?.pendingStoryKey ?? context.worldState?.pendingStoryKey;
+  const kind = pendingStoryKind(key);
+  const name = context.player?.name ?? "Nimpol";
+  const questTitle = context.recentCompletion?.questTitle ?? "your Math quest";
+  let raw = null;
+
+  if (!key && context.worldState?.step === 0 && context.worldState?.stageTurns === 0) {
+    raw = {
+      storyText: String(
+        context.openingStoryText ??
+          "Good morning, Nimpol! Your focus crystal hums softly. How shall we begin today's chronicle?"
+      ).replace(/\bNimpol\b/g, name),
+      choices: [{ ...READY_CHOICE }]
+    };
+  } else if (kind === "math-intro-1") {
+    raw = {
+      storyText: "Nutty scampers beside you as stone numbers wake underfoot. A locked arch hums farther ahead.",
+      choices: [
+        { id: "inspect-number-runes", label: "Inspect the Runes", action: "continue" },
+        { id: "follow-glowing-trail", label: "Follow the Trail", action: "continue" }
+      ]
+    };
+  } else if (kind === "math-intro-2") {
+    raw = {
+      storyText: "The runes form three Math trials. Nutty nods: complete any one, and the strange arch may answer.",
+      choices: [
+        { id: "open-math-quests", label: "View Math Quests", action: "open_quests", value: BUILD_WEEK_MATH },
+        { id: "accept-math-trial", label: "Accept a Trial", action: "open_quests", value: BUILD_WEEK_MATH }
+      ]
+    };
+  } else if (kind === "completion-ack") {
+    raw = {
+      storyText: `Nutty cheers! You completed ${questTitle}. The Math runes lock into place, and a strange light flickers beyond the path.`,
+      choices: [
+        { id: "investigate-strange-light", label: "Investigate the Light", action: "continue" },
+        { id: "ask-nutty-about-light", label: "Ask Nutty", action: "continue" }
+      ]
+    };
+  } else if (kind === "discovery-1") {
+    raw = {
+      storyText: "The light gathers between two old trees. Nutty finds silver pawprints leading straight through the glow.",
+      choices: [
+        { id: "follow-silver-prints", label: "Follow the Prints", action: "continue" },
+        { id: "study-the-glow", label: "Study the Glow", action: "continue" }
+      ]
+    };
+  } else if (kind === "discovery-2") {
+    raw = {
+      storyText: "A doorway takes shape inside the light. Stars drift across its surface like letters waiting to be read.",
+      choices: [
+        { id: "touch-star-door", label: "Touch the Door", action: "continue" },
+        { id: "read-star-symbols", label: "Read the Symbols", action: "continue" }
+      ]
+    };
+  } else if (kind === "library-reveal") {
+    raw = {
+      storyText: "The doorway opens! Nutty reveals the Starlit Library, where living books whisper new Reading quests.",
+      choices: [
+        { id: "enter-starlit-library", label: "Enter the Library", action: "select_subject", value: BUILD_WEEK_READING },
+        { id: "begin-reading-path", label: "Begin Reading Path", action: "select_subject", value: BUILD_WEEK_READING }
+      ]
+    };
+  }
+
+  return raw ? validateStoryTurn(raw, validSubjectSlugs) : null;
+}
+
 export function generateFallbackTurn(context, { skipped = false, validSubjectSlugs = new Set() } = {}) {
   const name = context.player?.name ?? "Nimpol";
   const discovery = context.activity?.lastDiscoveryTitle;
@@ -264,29 +371,20 @@ export function generateFallbackTurn(context, { skipped = false, validSubjectSlu
   const subjects = context.subjects ?? [];
   const recentCompletion = context.recentCompletion;
 
+  const stagedTurn = buildWeekTurn(context, validSubjectSlugs);
+  if (stagedTurn) return stagedTurn;
+
   // Build Week: keep the core completion loop compelling even without OpenAI.
   if (recentCompletion) {
     const questTitle = recentCompletion.questTitle ?? "your quest";
-    const locationLabel = recentCompletion.unlockedLocationLabel ?? "a new place";
-    const subjectLabel = recentCompletion.unlockedSubjectLabel ?? "a new subject";
-    const subjectSlug = recentCompletion.unlockedSubjectSlug;
-    const choices = [
-      ...(subjectSlug && validSubjectSlugs.has(subjectSlug)
-        ? [{
-            id: `visit-${subjectSlug}`,
-            label: `Choose ${subjectLabel}`,
-            action: "select_subject",
-            value: subjectSlug
-          }]
-        : []),
-      { id: "open-new-quests", label: "View Quests", action: "open_quests" },
-      { id: "continue-after-unlock", label: "Press Onward", action: "continue" }
-    ];
 
     return validateStoryTurn(
       {
-        storyText: `Nutty cheers! You completed ${questTitle}. The world shimmers, ${locationLabel} opens, and ${subjectLabel} is now unlocked!`,
-        choices
+        storyText: `Nutty cheers! You completed ${questTitle}. The Math runes settle, and a strange light flickers beyond the path.`,
+        choices: [
+          { id: "investigate-light", label: "Investigate the Light", action: "continue" },
+          { id: "ask-nutty", label: "Ask Nutty", action: "continue" }
+        ]
       },
       validSubjectSlugs
     );
@@ -318,7 +416,10 @@ export function generateFallbackTurn(context, { skipped = false, validSubjectSlu
     );
   }
 
-  let storyText = `Good morning, ${name}! Your focus crystal hums softly. How shall we begin today's chronicle?`;
+  let storyText = String(
+    context.openingStoryText ??
+      "Good morning, Nimpol! Your focus crystal hums softly. How shall we begin today's chronicle?"
+  ).replace(/\bNimpol\b/g, name);
 
   if (lastLabel) {
     storyText = `You chose "${lastLabel}." The crystal pulses in reply — what is your next move, ${name}?`;
@@ -336,9 +437,7 @@ export function generateFallbackTurn(context, { skipped = false, validSubjectSlu
           { id: "continue-story", label: "Press Onward", action: "continue" }
         ]
       : [
-          { id: "energetic", label: "Charge Ahead", action: "continue" },
-          { id: "strategize", label: "Plan First", action: "continue" },
-          { id: "scout", label: "Scout Ahead", action: "continue" }
+          { ...READY_CHOICE }
         ];
 
   return validateStoryTurn({ storyText, choices }, validSubjectSlugs);
@@ -435,19 +534,361 @@ export function createStoryEngine(client, config, gameState, callbacks = {}) {
 
   const subjectSlugs = () => getValidSubjectSlugs(gameState);
 
-  function applySideEffects(choice) {
+  function renderStoryRow(row, hideChoices = false) {
+    if (!row) return;
+    renderStoryTurn({
+      storyText: row.story_text,
+      choices: hideChoices ? [] : normalizeChoices(row.choices, subjectSlugs())
+    });
+  }
+
+  async function ensureReadyOpeningRow(row) {
+    const worldState = gameState.worldState ?? {};
+    const isOpening =
+      row &&
+      !row.selected_choice_id &&
+      (worldState.step ?? 0) === 0 &&
+      (worldState.stageTurns ?? 0) === 0 &&
+      !gameState.selectedSubject;
+    const alreadyReady =
+      Array.isArray(row?.choices) &&
+      row.choices.length === 1 &&
+      row.choices[0]?.id === READY_CHOICE.id &&
+      row.choices[0]?.action === READY_CHOICE.action &&
+      row.choices[0]?.value === READY_CHOICE.value;
+    if (!isOpening || alreadyReady) return row;
+
+    const choices = normalizeChoices([{ ...READY_CHOICE }], subjectSlugs());
+    const upgraded = { ...row, choices };
+    const { data, error } = await client
+      .from("story_history")
+      .update({ choices })
+      .eq("id", row.id)
+      .select("*")
+      .single();
+
+    if (error) {
+      console.warn("Opening choice upgrade could not be persisted:", error);
+      return upgraded;
+    }
+    return data;
+  }
+
+  async function persistStoryWorld(userId, nextWorldState) {
+    const persisted = await persistWorldState(client, userId, nextWorldState);
+    gameState.worldState = persisted;
+    return persisted;
+  }
+
+  function pendingWorldState(kind, targetWorldState) {
+    return {
+      ...targetWorldState,
+      pendingStoryKey: `${kind}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`
+    };
+  }
+
+  function finalWorldStateForPending(worldState) {
+    const kind = pendingStoryKind(worldState.pendingStoryKey);
+    return {
+      ...worldState,
+      stageTurns: BUILD_WEEK_FINAL_TURNS[kind] ?? worldState.stageTurns ?? 0,
+      pendingStoryKey: null
+    };
+  }
+
+  function buildRecentCompletion() {
+    if (gameState.recentCompletion) return gameState.recentCompletion;
+    const completedIds = gameState.worldState?.completedQuestIds ?? [];
+    const questId = completedIds[completedIds.length - 1] ?? null;
+    const template = (gameState.questTemplates ?? []).find((item) => item.slug === questId);
+    return questId
+      ? {
+          questId,
+          questTitle: template?.title ?? "your Math quest",
+          subject: template?.subject ?? BUILD_WEEK_MATH
+        }
+      : null;
+  }
+
+  async function requestBuildWeekTurn(context, key) {
+    const scriptedTurn = buildWeekTurn(context, subjectSlugs());
+    if (!scriptedTurn) throw new Error(`Unknown Build Week story key: ${key}`);
+
+    const generated = await requestStoryTurn(client, context, subjectSlugs());
+    return {
+      turn: {
+        storyText: generated.turn.storyText,
+        choices: scriptedTurn.choices
+      },
+      source: generated.source
+    };
+  }
+
+  async function insertPendingStageTurn(user, key) {
+    const [activity, history, inventory] = await Promise.all([
+      fetchPlayerActivity(client, user.id),
+      fetchStoryHistory(client, user.id),
+      fetchInventory()
+    ]);
+    const kind = pendingStoryKind(key);
+    const context = buildStoryContext(
+      config,
+      gameState,
+      activity,
+      history,
+      null,
+      inventory
+    );
+    context.recentCompletion = buildRecentCompletion();
+    context.buildWeek.pendingStoryKey = key;
+    context.worldState.pendingStoryKey = key;
+
+    const { turn, source } = await requestBuildWeekTurn(context, key);
+    const refreshedHistory = await fetchStoryHistory(client, user.id);
+    const existingTurn = refreshedHistory.find(
+      (row) => row.ai_context?.buildWeek?.pendingStoryKey === key
+    );
+    if (existingTurn) {
+      currentTurnRow = existingTurn;
+      renderStoryRow(existingTurn);
+      await persistStoryWorld(user.id, finalWorldStateForPending(gameState.worldState));
+      saveState();
+      return true;
+    }
+
+    const turnIndex = await getNextTurnIndex(client, user.id);
+    currentTurnRow = await insertStoryTurn(
+      client,
+      user.id,
+      turnIndex,
+      turn,
+      context,
+      source
+    );
+    renderStoryTurn(turn);
+
+    const finalWorldState = finalWorldStateForPending(gameState.worldState);
+    try {
+      await persistStoryWorld(user.id, finalWorldState);
+      saveState();
+      return true;
+    } catch (err) {
+      console.warn(`Build Week ${kind} turn saved; final stage sync is pending:`, err);
+      showToast("Story saved. Finishing progress sync on refresh.");
+      saveState();
+      return false;
+    }
+  }
+
+  async function beginStageTurn(user, kind, targetWorldState, choice = null, sideEffect = null) {
+    const pending = pendingWorldState(kind, targetWorldState);
+    await persistStoryWorld(user.id, pending);
+    saveState();
+
+    if (sideEffect) await sideEffect();
+    if (choice && currentTurnRow) {
+      currentTurnRow = await recordStoryChoice(
+        client,
+        currentTurnRow.id,
+        choice.id,
+        choice.label
+      );
+    }
+
+    return insertPendingStageTurn(user, pending.pendingStoryKey);
+  }
+
+  async function recoverPendingStageTurn(user, history) {
+    const key = gameState.worldState?.pendingStoryKey;
+    if (!key) return false;
+
+    const existing = (history ?? []).find(
+      (row) => row.ai_context?.buildWeek?.pendingStoryKey === key
+    );
+    if (!existing) {
+      await insertPendingStageTurn(user, key);
+      return true;
+    }
+
+    currentTurnRow = existing;
+    renderStoryRow(existing);
+    try {
+      await persistStoryWorld(user.id, finalWorldStateForPending(gameState.worldState));
+      saveState();
+    } catch (err) {
+      console.warn("Build Week pending story recovery could not finalize:", err);
+      showToast("Story restored. Progress sync will retry on refresh.");
+    }
+    return true;
+  }
+
+  async function createInitialGreetingTurn(user) {
+    const [activity, history, inventory] = await Promise.all([
+      fetchPlayerActivity(client, user.id),
+      fetchStoryHistory(client, user.id),
+      fetchInventory()
+    ]);
+    const context = buildStoryContext(config, gameState, activity, history, null, inventory);
+    const turn =
+      defaultTurn ??
+      generateFallbackTurn(context, { validSubjectSlugs: subjectSlugs() });
+    const turnIndex = await getNextTurnIndex(client, user.id);
+    currentTurnRow = await insertStoryTurn(
+      client,
+      user.id,
+      turnIndex,
+      turn,
+      context,
+      "fallback"
+    );
+    renderStoryTurn(turn);
+  }
+
+  async function pauseForQuestCards(user, choice, subject, step) {
+    const nextWorldState = {
+      ...gameState.worldState,
+      step,
+      stageTurns: 0,
+      pendingStoryKey: null
+    };
+    await persistStoryWorld(user.id, nextWorldState);
+
+    if (choice && currentTurnRow) {
+      currentTurnRow = await recordStoryChoice(
+        client,
+        currentTurnRow.id,
+        choice.id,
+        choice.label
+      );
+    }
+    await setSubject(subject, true);
+    renderInteractionChoices([]);
+    renderQuestList();
+    saveState();
+  }
+
+  async function applySideEffects(choice) {
     if (choice.action === "select_subject" && choice.value) {
-      setSubject(choice.value, true);
+      await setSubject(choice.value, true);
       return;
     }
     if (choice.action === "open_quests") {
-      renderQuestList();
+      if (choice.value) {
+        await setSubject(choice.value, true);
+      } else {
+        renderQuestList();
+      }
       showToast("Your quests are ready below.");
       return;
     }
     if (choice.action === "spin_wheel") {
       openWheelModal();
     }
+  }
+
+  async function handleBuildWeekChoice(user, choice) {
+    const worldState = gameState.worldState ?? {};
+    const step = worldState.step ?? 0;
+    const stageTurns = worldState.stageTurns ?? 0;
+
+    if (worldState.pendingStoryKey) {
+      showToast("Story progress is still syncing.");
+      return true;
+    }
+
+    if (
+      step === 0 &&
+      stageTurns === 0 &&
+      choice.action === "select_subject" &&
+      choice.value === BUILD_WEEK_MATH
+    ) {
+      await beginStageTurn(
+        user,
+        "math-intro-1",
+        { ...worldState, step: 0, stageTurns: 0 },
+        choice,
+        () => setSubject(BUILD_WEEK_MATH, true)
+      );
+      return true;
+    }
+
+    if (step === 0 && stageTurns === 1 && choice.action === "continue") {
+      await beginStageTurn(
+        user,
+        "math-intro-2",
+        { ...worldState, step: 0, stageTurns: 1 },
+        choice
+      );
+      return true;
+    }
+
+    if (
+      step === 0 &&
+      stageTurns === 2 &&
+      choice.action === "open_quests" &&
+      choice.value === BUILD_WEEK_MATH
+    ) {
+      await pauseForQuestCards(user, choice, BUILD_WEEK_MATH, 1);
+      return true;
+    }
+
+    if (step === 2 && stageTurns === 1 && choice.action === "continue") {
+      const completed = await beginStageTurn(
+        user,
+        "discovery-1",
+        { ...worldState, step: 3, stageTurns: 0 },
+        choice
+      );
+      if (completed) {
+        gameState.recentCompletion = null;
+        saveState();
+      }
+      return true;
+    }
+
+    if (step === 3 && stageTurns === 1 && choice.action === "continue") {
+      await beginStageTurn(
+        user,
+        "discovery-2",
+        { ...worldState, step: 3, stageTurns: 1 },
+        choice
+      );
+      return true;
+    }
+
+    if (step === 3 && stageTurns === 2 && choice.action === "continue") {
+      await beginStageTurn(
+        user,
+        "library-reveal",
+        {
+          ...worldState,
+          step: 4,
+          stageTurns: 0,
+          unlockedLocations: uniqueValues([
+            ...(worldState.unlockedLocations ?? []),
+            BUILD_WEEK_LOCATION
+          ]),
+          unlockedSubjects: uniqueValues([
+            ...(worldState.unlockedSubjects ?? []),
+            BUILD_WEEK_READING
+          ])
+        },
+        choice
+      );
+      return true;
+    }
+
+    if (
+      step === 4 &&
+      stageTurns === 1 &&
+      choice.action === "select_subject" &&
+      choice.value === BUILD_WEEK_READING
+    ) {
+      await pauseForQuestCards(user, choice, BUILD_WEEK_READING, 5);
+      return true;
+    }
+
+    return false;
   }
 
   async function persistAndAdvance(choice) {
@@ -462,6 +903,8 @@ export function createStoryEngine(client, config, gameState, callbacks = {}) {
     try {
       const user = await getSessionUser(client);
       if (!user) throw new Error("Not signed in");
+
+      if (await handleBuildWeekChoice(user, choice)) return;
 
       await recordStoryChoice(client, currentTurnRow.id, choice.id, choice.label);
 
@@ -485,7 +928,7 @@ export function createStoryEngine(client, config, gameState, callbacks = {}) {
         inventory
       );
 
-      applySideEffects(choice);
+      await applySideEffects(choice);
 
       const { turn, source, lootAward } = await requestStoryTurn(client, context, subjectSlugs());
       const turnIndex = await getNextTurnIndex(client, user.id);
@@ -582,26 +1025,28 @@ export function createStoryEngine(client, config, gameState, callbacks = {}) {
   }
 
   async function acknowledgeCompletion() {
-    if (!gameState.recentCompletion || loading) return false;
-
-    // Build Week: create and persist a dedicated turn immediately after the claim.
-    const acknowledged = await startNewTurn();
-    if (acknowledged) {
-      gameState.recentCompletion = null;
-      saveState();
+    if (loading || pendingStoryKind(gameState.worldState?.pendingStoryKey) !== "completion-ack") {
+      return false;
     }
-    return acknowledged;
+
+    loading = true;
+    try {
+      const user = await getSessionUser(client);
+      if (!user) return false;
+      const history = await fetchStoryHistory(client, user.id);
+      return await recoverPendingStageTurn(user, history);
+    } catch (err) {
+      console.warn("Completion acknowledgement failed:", err);
+      showToast("Nutty's acknowledgement will retry on refresh.");
+      return false;
+    } finally {
+      loading = false;
+    }
   }
 
   async function bootstrap() {
     if (defaultTurn) {
       renderStoryTurn(defaultTurn);
-    }
-
-    // Build Week: retry a persisted one-shot acknowledgement after refresh.
-    if (gameState.recentCompletion) {
-      await acknowledgeCompletion();
-      return;
     }
 
     loading = true;
@@ -610,44 +1055,56 @@ export function createStoryEngine(client, config, gameState, callbacks = {}) {
       const user = await getSessionUser(client);
       if (!user) return;
 
-      const latest = await fetchLatestStoryTurn(client, user.id);
+      const history = await fetchStoryHistory(client, user.id);
+      let latest = await fetchLatestStoryTurn(client, user.id);
+      latest = await ensureReadyOpeningRow(latest);
 
       if (latest && !latest.selected_choice_id) {
         currentTurnRow = latest;
-        renderStoryTurn({
-          storyText: latest.story_text,
-          choices: normalizeChoices(latest.choices, subjectSlugs())
-        });
+        renderStoryRow(latest);
+      }
+
+      if (gameState.worldState?.pendingStoryKey) {
+        await recoverPendingStageTurn(user, history);
         return;
       }
 
-      if (latest?.selected_choice_id) {
-        const nextTurn = await fetchStoryTurnByIndex(client, user.id, latest.turn_index + 1);
-        if (nextTurn && !nextTurn.selected_choice_id) {
-          currentTurnRow = nextTurn;
-          renderStoryTurn({
-            storyText: nextTurn.story_text,
-            choices: normalizeChoices(nextTurn.choices, subjectSlugs())
-          });
-          return;
+      if (gameState.worldState?.step === 1 || gameState.worldState?.step === 5) {
+        if (latest) {
+          currentTurnRow = latest;
+          renderStoryRow(latest, true);
+        } else {
+          renderInteractionChoices([]);
         }
-        if (nextTurn?.selected_choice_id) {
-          currentTurnRow = nextTurn;
-          await startNewTurn({
-            lastChoice: {
-              id: nextTurn.selected_choice_id,
-              label: nextTurn.selected_choice_label
-            }
-          });
-          return;
-        }
+        renderQuestList();
+        return;
+      }
 
-        await startNewTurn({
-          lastChoice: {
-            id: latest.selected_choice_id,
-            label: latest.selected_choice_label
-          }
-        });
+      if (latest && !latest.selected_choice_id) {
+        return;
+      }
+
+      const step = gameState.worldState?.step ?? 0;
+      const stageTurns = gameState.worldState?.stageTurns ?? 0;
+
+      if (step === 0 && stageTurns === 0) {
+        if (gameState.selectedSubject === BUILD_WEEK_MATH) {
+          await beginStageTurn(
+            user,
+            "math-intro-1",
+            { ...gameState.worldState, step: 0, stageTurns: 0 }
+          );
+        } else {
+          await createInitialGreetingTurn(user);
+        }
+        return;
+      }
+
+      // Build Week stages never auto-generate over an answered turn. Recovery is
+      // driven by pendingStoryKey; otherwise keep the last narrative visible.
+      if (latest && step >= 0 && step <= 5) {
+        currentTurnRow = latest;
+        renderStoryRow(latest);
         return;
       }
 
@@ -667,19 +1124,68 @@ export function createStoryEngine(client, config, gameState, callbacks = {}) {
     const choice = choices.find((c) => c.id === choiceId);
     if (!choice) return;
 
-    persistAndAdvance(choice);
+    return persistAndAdvance(choice);
+  }
+
+  async function enterSubjectPath(subject) {
+    if (loading || gameState.worldState?.pendingStoryKey) return false;
+
+    const matchingChoice = normalizeChoices(
+      currentTurnRow?.choices,
+      subjectSlugs()
+    ).find(
+      (choice) =>
+        choice.action === "select_subject" &&
+        choice.value === subject
+    );
+    if (matchingChoice) {
+      await persistAndAdvance(matchingChoice);
+      return true;
+    }
+
+    loading = true;
+    try {
+      const user = await getSessionUser(client);
+      if (!user) return false;
+      const step = gameState.worldState?.step ?? 0;
+      const stageTurns = gameState.worldState?.stageTurns ?? 0;
+
+      if (step === 0 && stageTurns === 0 && subject === BUILD_WEEK_MATH) {
+        await beginStageTurn(
+          user,
+          "math-intro-1",
+          { ...gameState.worldState, step: 0, stageTurns: 0 },
+          null,
+          () => setSubject(BUILD_WEEK_MATH, false)
+        );
+        return true;
+      }
+
+      if (step === 4 && stageTurns === 1 && subject === BUILD_WEEK_READING) {
+        await pauseForQuestCards(user, null, BUILD_WEEK_READING, 5);
+        return true;
+      }
+
+      await setSubject(subject, false);
+      return true;
+    } finally {
+      loading = false;
+    }
   }
 
   function skipToSubjects() {
+    if (loading || gameState.worldState?.pendingStoryKey) {
+      showToast("Finish this story moment first.");
+      return;
+    }
     openSubjectPicker();
   }
 
   function renderCurrentTurn() {
     if (currentTurnRow) {
-      renderStoryTurn({
-        storyText: currentTurnRow.story_text,
-        choices: normalizeChoices(currentTurnRow.choices, subjectSlugs())
-      });
+      const cardsVisible =
+        gameState.worldState?.step === 1 || gameState.worldState?.step === 5;
+      renderStoryRow(currentTurnRow, cardsVisible);
       return;
     }
     if (defaultTurn) renderStoryTurn(defaultTurn);
@@ -688,6 +1194,7 @@ export function createStoryEngine(client, config, gameState, callbacks = {}) {
   return {
     bootstrap,
     handleChoiceClick,
+    enterSubjectPath,
     acknowledgeCompletion,
     skipToSubjects,
     renderCurrentTurn,

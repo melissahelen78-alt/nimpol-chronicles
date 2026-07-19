@@ -164,7 +164,7 @@ using (auth.uid() = user_id) with check (auth.uid() = user_id);
 -- ─────────────────────────────────────────────
 insert into public.quest_templates (slug, subject, tool_name, title, description, icon, reward_xp, portal_url, verification_type, delay_minutes, sort_order)
 values
-  ('math-ba-online', 'math', 'Beast Academy Online', 'Vault of Arithmancy', 'Complete the next Beast Academy online lesson.', '🔢', 72, 'https://beastacademy.com', 'time_delay', 15, 1),
+  ('math-ba-online', 'math', 'Beast Academy Online', 'Vault of Arithmancy', 'Complete the next Beast Academy online lesson.', '🔢', 72, 'https://beastacademy.com', 'parent_code', 15, 1),
   ('math-ba-workbook', 'math', 'Beast Academy Workbook', 'Workbook Quest', 'Finish one Beast Academy workbook page set.', '📘', 68, null, 'parent_code', 0, 2),
   ('math-morning-sheet', 'math', 'Morning Worksheet', 'Morning Math Runes', 'Complete today''s morning math worksheet.', '📝', 55, null, 'parent_code', 0, 3),
   ('reading-comp', 'reading', 'Reading Comprehension Worksheet', 'Scroll of Main Ideas', 'Read and answer comprehension questions.', '📖', 48, null, 'parent_code', 0, 1),

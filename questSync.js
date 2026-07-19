@@ -2,12 +2,16 @@
  * Supabase sync for quest session state, active quests, verification, and claims.
  */
 
-// Build Week demo progression: keep this intentionally small and tied to one quest.
-const BUILD_WEEK_GATE_QUEST = "math-morning-sheet";
-const BUILD_WEEK_LOCATION = "starlit-library";
-const BUILD_WEEK_DESTINATION_SUBJECT = "reading";
+// Build Week demo progression: only these existing Math templates advance the demo.
+const BUILD_WEEK_MATH_QUESTS = new Set([
+  "math-ba-online",
+  "math-ba-workbook",
+  "math-morning-sheet"
+]);
 const DEFAULT_WORLD_STATE = {
   step: 0,
+  stageTurns: 0,
+  pendingStoryKey: null,
   unlockedLocations: [],
   unlockedSubjects: ["math"],
   completedQuestIds: []
@@ -21,6 +25,11 @@ export function normalizeWorldState(value = null) {
   const source = value && typeof value === "object" ? value : {};
   return {
     step: Number.isFinite(Number(source.step)) ? Number(source.step) : DEFAULT_WORLD_STATE.step,
+    stageTurns: Number.isFinite(Number(source.stageTurns ?? source.stage_turns))
+      ? Math.max(0, Number(source.stageTurns ?? source.stage_turns))
+      : DEFAULT_WORLD_STATE.stageTurns,
+    pendingStoryKey:
+      source.pendingStoryKey ?? source.pending_story_key ?? DEFAULT_WORLD_STATE.pendingStoryKey,
     unlockedLocations: uniqueStrings(
       source.unlockedLocations ?? source.unlocked_locations ?? DEFAULT_WORLD_STATE.unlockedLocations
     ),
@@ -37,6 +46,8 @@ function serializeWorldState(value) {
   const worldState = normalizeWorldState(value);
   return {
     step: worldState.step,
+    stage_turns: worldState.stageTurns,
+    pending_story_key: worldState.pendingStoryKey,
     unlocked_locations: worldState.unlockedLocations,
     unlocked_subjects: worldState.unlockedSubjects,
     completed_quest_ids: worldState.completedQuestIds
@@ -238,12 +249,8 @@ export function questProgressPayload(userId, gameState) {
     last_reset_date: gameState.lastResetDate
   };
 
-  // Build Week: step-zero clients omit world_state so stale tabs cannot relock
-  // the one-step demo world after the dedicated claim write has advanced it.
-  if (normalizeWorldState(gameState.worldState).step > 0) {
-    payload.world_state = serializeWorldState(gameState.worldState);
-  }
-
+  // Build Week stage state is written only by persistWorldState(). Keeping it
+  // out of generic UI sync prevents a stale tab from regressing the story.
   return payload;
 }
 
@@ -253,6 +260,27 @@ export async function upsertQuestProgress(client, userId, gameState) {
     .upsert(questProgressPayload(userId, gameState), { onConflict: "user_id" });
 
   if (error) throw error;
+}
+
+/**
+ * Persist one Build Week world-state transition.
+ * This helper does not decide stages; storyEngine owns story transitions and
+ * recordQuestClaim owns only the successful Math-completion transition.
+ */
+export async function persistWorldState(client, userId, value) {
+  const worldState = normalizeWorldState(value);
+  const { error } = await client
+    .from("quest_progress")
+    .upsert(
+      {
+        user_id: userId,
+        world_state: serializeWorldState(worldState)
+      },
+      { onConflict: "user_id" }
+    );
+
+  if (error) throw error;
+  return worldState;
 }
 
 /**
@@ -359,6 +387,20 @@ export async function verifyParentPin(client, userId, pin) {
   return String(pin).trim() === String(expected).trim();
 }
 
+async function persistMathCompletionTransition(client, userId, currentWorldState, questId) {
+  const worldState = {
+    ...currentWorldState,
+    step: 2,
+    stageTurns: 0,
+    pendingStoryKey: `completion-ack:${questId}:${Date.now()}`,
+    completedQuestIds: uniqueStrings([
+      ...currentWorldState.completedQuestIds,
+      questId
+    ])
+  };
+  return persistWorldState(client, userId, worldState);
+}
+
 export async function recordQuestClaim(
   client,
   userId,
@@ -393,45 +435,26 @@ export async function recordQuestClaim(
 
   if (xpError) throw xpError;
 
-  if (questId !== BUILD_WEEK_GATE_QUEST) {
-    return { worldState: null, unlockedDestination: false };
+  if (!BUILD_WEEK_MATH_QUESTS.has(questId)) {
+    return { worldState: null, demoProgressed: false };
   }
 
   // Build Week: this is a separate, fallible write after the normal claim writes.
   // It is deliberately not described as atomic because no database RPC is used.
   const progress = await fetchQuestProgress(client, userId);
   const currentWorldState = normalizeWorldState(progress?.world_state);
-  const unlockedDestination =
-    !currentWorldState.unlockedLocations.includes(BUILD_WEEK_LOCATION) ||
-    !currentWorldState.unlockedSubjects.includes(BUILD_WEEK_DESTINATION_SUBJECT);
-  const worldState = {
-    step: Math.max(1, currentWorldState.step),
-    unlockedLocations: uniqueStrings([
-      ...currentWorldState.unlockedLocations,
-      BUILD_WEEK_LOCATION
-    ]),
-    unlockedSubjects: uniqueStrings([
-      ...currentWorldState.unlockedSubjects,
-      BUILD_WEEK_DESTINATION_SUBJECT
-    ]),
-    completedQuestIds: uniqueStrings([
-      ...currentWorldState.completedQuestIds,
-      BUILD_WEEK_GATE_QUEST
-    ])
-  };
 
-  const { error: worldError } = await client
-    .from("quest_progress")
-    .upsert(
-      {
-        user_id: userId,
-        world_state: serializeWorldState(worldState)
-      },
-      { onConflict: "user_id" }
-    );
+  if (currentWorldState.step !== 1) {
+    return { worldState: null, demoProgressed: false };
+  }
 
-  if (worldError) throw worldError;
-  return { worldState, unlockedDestination };
+  const persistedWorldState = await persistMathCompletionTransition(
+    client,
+    userId,
+    currentWorldState,
+    questId
+  );
+  return { worldState: persistedWorldState, demoProgressed: true };
 }
 
 export async function hydrateQuestState(client, gameState, todayKey, session = null) {
@@ -463,6 +486,18 @@ export async function hydrateQuestState(client, gameState, todayKey, session = n
 
   const activeRows = await fetchActiveQuests(client, user.id, todayKey);
   applyActiveQuests(activeRows, gameState);
+
+  // Build Week: recover when the claim/status write succeeded but the separate
+  // world-state transition failed. Today's claim audit is the source of truth.
+  const completedMathQuest = claims.find((questId) => BUILD_WEEK_MATH_QUESTS.has(questId));
+  if (gameState.worldState.step === 1 && completedMathQuest) {
+    gameState.worldState = await persistMathCompletionTransition(
+      client,
+      user.id,
+      gameState.worldState,
+      completedMathQuest
+    );
+  }
 
   if (gameState.lastResetDate === todayKey && !gameState.activeQuests.length && gameState.selectedSubject) {
     const ensured = await ensureDailyQuests(
