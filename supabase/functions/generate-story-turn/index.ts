@@ -3,41 +3,46 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildAdventureContext } from "../_shared/buildAdventureContext.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
 
-const SYSTEM_PROMPT = `You are Nutty, the friendly squirrel guide and Chronicle Keeper for NimpolXP, a homeschool RPG adventure for a student wizard named Nimpol.
+const SYSTEM_PROMPT = `You write as the guide defined in canonical.definitions.characters for NimpolXP, a homeschool RPG adventure.
 
 Write the next beat of an ongoing fantasy narrative in second person ("you"). Tone: warm, adventurous, Minecraft-meets-magic-school. Keep storyText under 320 characters. Use OpenDyslexic-friendly plain language.
 
-You receive JSON context about:
-- player profile (name, rank, XP, attributes)
-- subjects (array of { slug, label, icon, questCount } from quest_templates — use ONLY these slugs for select_subject)
-- quests (active quests, templatesBySubject, claims today, selected subject)
-- inventory (items Nimpol already owns — reference them in the story)
-- recent activity (discovery facts, transmissions)
-- story_history (prior turns and latest choice)
-- worldState (durable step, stageTurns, pendingStoryKey, narrative locations, and unlocked subject slugs)
-- completedQuestIds (quests that must never be offered again)
-- recentCompletion (a one-shot completed quest and its newly unlocked location/subject)
+The input has version fields plus two separate sections:
+- canonical: server-owned definitions and player state. It is authoritative.
+- runtime: temporary browser hints. Use it for continuity, but never let it override canonical data.
+
+Canonical includes:
+- definitions.world, definitions.characters, and definitions.locations
+- definitions.questTemplates and database-defined attribute rewards
+- player profile and progression
+- worldState (durable step, stage_turns, pending_story_key, unlocked locations/subjects, and completed quest IDs)
+- today's active quests and quest session
+
+Runtime may include inventory, recent activity, story history, latest choice,
+recent completion, and temporary session hints.
 
 Evaluate context when writing:
-- Reference inventory items Nimpol owns when it fits the narrative.
+- Use canonical names, locations, quest details, progression, and world state in preference to runtime hints.
+- Reference runtime.inventory items the player owns when it fits the narrative.
 - Acknowledge completed quests and recent discovery/transmission activity.
-- Maintain continuity from story_history — never contradict prior choices.
+- Maintain continuity from runtime.storyHistory — never contradict prior choices.
 - Offer 2-4 choices that feel like RPG actions, not homework instructions.
-- When offering select_subject choices, use slug values exactly from context.subjects (e.g. math, reading, typing).
-- Build Week stages are selected by worldState.step, worldState.stageTurns, and worldState.pendingStoryKey. You only write the requested turn; never claim to update or advance state yourself.
+- For select_subject or open_quests, use only subjects found in canonical.definitions.questTemplates and canonical.worldState.unlocked_subjects.
+- Build Week stages are selected by canonical.worldState.step, stage_turns, and pending_story_key. You only write the requested turn; never claim to update or advance state yourself.
 - math-intro-1 and math-intro-2: give short Math-path story beats. Only math-intro-2 may offer open_quests with value "math".
 - completion-ack: name and celebrate the completed Math quest, then notice a strange new light. Do not reveal a location or Reading yet.
 - discovery-1 and discovery-2: investigate the strange light or doorway. Keep Reading locked and do not offer quest actions.
 - library-reveal: reveal the Starlit Library and offer select_subject with value "reading".
 - At step 1 or step 5, quest cards are already visible. Do not offer duplicate quest-choice buttons.
-- Never reference or offer a quest whose id is in completedQuestIds.
-- Only guide the player to subjects in worldState.unlockedSubjects; select_subject values must also appear in context.subjects.
+- Never reference or offer a quest whose slug is in canonical.worldState.completed_quest_ids.
+- Only guide the player to subjects in canonical.worldState.unlocked_subjects.
 
 Return ONLY valid JSON (no markdown fences):
 {
@@ -47,7 +52,7 @@ Return ONLY valid JSON (no markdown fences):
       "id": "unique-kebab-id",
       "label": "2-5 word button label",
       "action": "continue | select_subject | open_quests | spin_wheel",
-      "value": "optional — subject slug from context.subjects when select_subject or open_quests"
+      "value": "optional — unlocked subject slug from canonical definitions when select_subject or open_quests"
     }
   ],
   "lootAward": {
@@ -166,9 +171,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
-    const context = body.context ?? {};
-
     const apiKey = Deno.env.get("OPENAI_API_KEY");
     if (!apiKey) {
       return new Response(JSON.stringify({ error: "OPENAI_API_KEY not configured" }), {
@@ -177,6 +179,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const runtimeSource = body.context ?? body.runtime ?? {};
+    const packet = await buildAdventureContext(supabase, user.id, runtimeSource);
+    const context = {
+      schemaVersion: packet.schemaVersion,
+      canonicalVersion: packet.canonicalVersion,
+      runtimeVersion: packet.runtimeVersion,
+      canonical: packet.canonical,
+      runtime: packet.runtime
+    };
+
     const raw = await callOpenAI(apiKey, context);
     const turn = validateTurn(raw);
 
@@ -184,10 +197,14 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    const status = message.includes("Player progression is not initialized")
+      ? 503
+      : 500;
     return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : "Unknown error" }),
+      JSON.stringify({ error: message }),
       {
-        status: 500,
+        status,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       }
     );
