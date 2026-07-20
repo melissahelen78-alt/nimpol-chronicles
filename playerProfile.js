@@ -1,22 +1,14 @@
 /**
- * Maps a Supabase profiles row → dashboard CONFIG + DOM updates.
- *
- * HTML targets (index.html):
- *   #playerName      — .name-plate
- *   #playerRank      — .rank-ribbon
- *   #xpFill          — .xp-fill width %
- *   #xpText          — overlay label inside .xp-track
- *   #xpTrack         — role="progressbar" aria values
- *   #attrList        — .attr-row blocks with .attr-bar-fill width %
+ * Hydrates identity from profiles and authoritative progression from RPCs.
  */
 
 export const ATTRIBUTE_KEYS = [
   { id: "mana", label: "Mana", diamond: "mana", barClass: "bar-mana" },
-  { id: "intellect", label: "Intellect", diamond: "intellect", barClass: "bar-intellect" },
-  { id: "lore", label: "Lore", diamond: "lore", barClass: "bar-lore" },
+  { id: "knowledge", label: "Knowledge", diamond: "intellect", barClass: "bar-intellect" },
   { id: "perception", label: "Perception", diamond: "perception", barClass: "bar-perception" },
-  { id: "charisma", label: "Charisma", diamond: "charisma", barClass: "bar-charisma" },
-  { id: "stamina", label: "Stamina", diamond: "stamina", barClass: "bar-stamina" }
+  { id: "creativity", label: "Creativity", diamond: "lore", barClass: "bar-lore" },
+  { id: "stamina", label: "Stamina", diamond: "stamina", barClass: "bar-stamina" },
+  { id: "resolve", label: "Resolve", diamond: "charisma", barClass: "bar-charisma" }
 ];
 
 function formatNumber(value) {
@@ -26,6 +18,15 @@ function formatNumber(value) {
 function barPercent(current, max) {
   const safeMax = Math.max(1, Number(max) || 1);
   return Math.max(0, Math.min(100, Math.round((Number(current) / safeMax) * 100)));
+}
+
+function attributeMeta(slug) {
+  return ATTRIBUTE_KEYS.find((item) => item.id === slug) ?? {
+    id: slug,
+    label: slug,
+    diamond: slug,
+    barClass: `bar-${slug}`
+  };
 }
 
 /**
@@ -79,33 +80,48 @@ export async function ensurePlayerProfile(client, userId) {
   return existing;
 }
 
-/**
- * Push Supabase row values into in-memory CONFIG/state used by the game loop.
- */
-export function syncConfigFromProfile(row, config, gameState) {
-  if (!row) return;
-
-  config.player.name = row.player_name ?? config.player.name;
-  config.player.rank = row.rank_ribbon ?? config.player.rank;
-  config.player.xp = row.xp_current ?? config.player.xp;
-  config.player.xpToNextRank = row.xp_max ?? config.player.xpToNextRank;
-
-  if (gameState) {
-    gameState.xp = row.xp_current ?? gameState.xp;
+export function syncConfigFromProgression(profile, snapshot, config, gameState) {
+  if (!snapshot?.rank || !Array.isArray(snapshot.attributes)) {
+    throw new Error("Progression RPC returned an invalid snapshot.");
   }
 
-  config.attributes = ATTRIBUTE_KEYS.map((meta) => ({
-    ...meta,
-    current: row[`${meta.id}_current`] ?? 0,
-    max: row[`${meta.id}_max`] ?? 100
-  }));
+  if (profile?.player_name) config.player.name = profile.player_name;
+  config.player.rank = snapshot.rank.name;
+  config.player.xp = snapshot.total_xp;
+  config.player.rankProgress = snapshot.rank.progress_xp;
+  config.player.rankSpan = snapshot.rank.rank_span_xp;
+  config.player.xpToNextRank = snapshot.rank.xp_to_next_rank;
+  config.player.nextRank = snapshot.rank.next_rank_name;
+
+  config.attributes = snapshot.attributes.map((attribute) => {
+    const meta = attributeMeta(attribute.slug);
+    const atFinalLevel = attribute.next_level == null;
+    return {
+      ...meta,
+      label: attribute.label ?? meta.label,
+      level: attribute.level,
+      nextLevel: attribute.next_level,
+      attributeXp: attribute.attribute_xp,
+      current: atFinalLevel ? 1 : attribute.progress_xp,
+      max: atFinalLevel ? 1 : attribute.level_span_xp,
+      progressText: atFinalLevel
+        ? `${formatNumber(attribute.attribute_xp)} XP`
+        : `${formatNumber(attribute.progress_xp)} / ${formatNumber(attribute.level_span_xp)} to Lv. ${attribute.next_level}`
+    };
+  });
+
+  if (gameState) {
+    gameState.xp = snapshot.total_xp;
+    gameState.progression = snapshot;
+    gameState.worldState = {
+      ...gameState.worldState,
+      knowledgeLibraryEligible: Boolean(snapshot.knowledge_library_eligible)
+    };
+  }
 }
 
-/**
- * Update the profile panel DOM from a profiles row (or synced CONFIG).
- */
-export function applyProfileToUI(row, config) {
-  if (!row) return;
+export function applyProgressionToUI(profile, snapshot, config) {
+  if (!snapshot) return;
 
   const playerName = document.getElementById("playerName");
   const playerRank = document.getElementById("playerRank");
@@ -118,42 +134,38 @@ export function applyProfileToUI(row, config) {
     return;
   }
 
-  const xpCurrent = row.xp_current ?? config.player.xp;
-  const xpMax = row.xp_max ?? config.player.xpToNextRank;
-  const xpPct = barPercent(xpCurrent, xpMax);
+  const rankProgress = snapshot.rank.rank_span_xp == null
+    ? 1
+    : snapshot.rank.progress_xp;
+  const rankSpan = snapshot.rank.rank_span_xp ?? 1;
+  const xpPct = barPercent(rankProgress, rankSpan);
 
-  playerName.textContent = row.player_name ?? config.player.name;
-  playerRank.textContent = row.rank_ribbon ?? config.player.rank;
+  playerName.textContent = profile?.player_name ?? config.player.name;
+  playerRank.textContent = snapshot.rank.name;
 
   const bannerTitle = document.getElementById("bannerTitle");
   if (bannerTitle) {
-    bannerTitle.textContent = `The Chronicles of ${row.player_name ?? config.player.name}`;
+    bannerTitle.textContent = `The Chronicles of ${profile?.player_name ?? config.player.name}`;
   }
 
   const avatarImg = document.querySelector(".avatar-frame img");
-  if (avatarImg) avatarImg.alt = row.player_name ?? config.player.name;
+  if (avatarImg) avatarImg.alt = profile?.player_name ?? config.player.name;
 
   xpFill.style.width = `${xpPct}%`;
-  xpText.textContent = `${formatNumber(xpCurrent)} / ${formatNumber(xpMax)} XP`;
+  xpText.textContent = snapshot.rank.next_rank_name
+    ? `${formatNumber(snapshot.total_xp)} XP · ${formatNumber(snapshot.rank.xp_to_next_rank)} to ${snapshot.rank.next_rank_name}`
+    : `${formatNumber(snapshot.total_xp)} XP · Max Rank`;
   xpTrack.setAttribute("aria-valuemin", "0");
-  xpTrack.setAttribute("aria-valuemax", String(xpMax));
-  xpTrack.setAttribute("aria-valuenow", String(xpCurrent));
+  xpTrack.setAttribute("aria-valuemax", String(rankSpan));
+  xpTrack.setAttribute("aria-valuenow", String(rankProgress));
 
-  const attributes = config.attributes?.length
-    ? config.attributes
-    : ATTRIBUTE_KEYS.map((meta) => ({
-        ...meta,
-        current: row[`${meta.id}_current`] ?? 0,
-        max: row[`${meta.id}_max`] ?? 100
-      }));
-
-  attrList.innerHTML = attributes
+  attrList.innerHTML = config.attributes
     .map((attr) => {
       const pct = barPercent(attr.current, attr.max);
       return `
         <div class="attr-row" data-attr="${attr.id}">
           <div class="diamond diamond--${attr.diamond}" aria-hidden="true"></div>
-          <span class="attr-label">${attr.label} ${attr.current}/${attr.max}</span>
+          <span class="attr-label">${attr.label} — Lv. ${attr.level} ${attr.progressText}</span>
           <div class="attr-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="${attr.max}" aria-valuenow="${attr.current}" aria-label="${attr.label}">
             <div class="attr-bar-fill ${attr.barClass}" style="width:${pct}%"></div>
           </div>
@@ -163,9 +175,11 @@ export function applyProfileToUI(row, config) {
     .join("");
 }
 
-/**
- * Convenience: fetch + sync CONFIG/state + paint UI in one call.
- */
+export function applyProgressionSnapshot(snapshot, config, gameState, profile = null) {
+  syncConfigFromProgression(profile, snapshot, config, gameState);
+  applyProgressionToUI(profile, snapshot, config);
+}
+
 export async function hydratePlayerProfile(client, config, gameState, session = null) {
   if (!session) {
     const {
@@ -192,7 +206,13 @@ export async function hydratePlayerProfile(client, config, gameState, session = 
 
   if (!row) return null;
 
-  syncConfigFromProfile(row, config, gameState);
-  applyProfileToUI(row, config);
-  return row;
+  const { data: progression, error: progressionError } = await client.rpc(
+    "initialize_player_progression"
+  );
+
+  if (progressionError) throw progressionError;
+  if (!progression) throw new Error("Progression initialization returned no state.");
+
+  applyProgressionSnapshot(progression, config, gameState, row);
+  return { profile: row, progression };
 }

@@ -33,16 +33,15 @@ Evaluate context when writing:
 - Reference runtime.inventory items the player owns when it fits the narrative.
 - Acknowledge completed quests and recent discovery/transmission activity.
 - Maintain continuity from runtime.storyHistory — never contradict prior choices.
+- Every choice label must be a direct, concrete response to something in storyText.
+- Every choice must use one concrete action and must not duplicate another choice's immediate effect.
 - Offer 2-4 choices that feel like RPG actions, not homework instructions.
-- For select_subject or open_quests, use only subjects found in canonical.definitions.questTemplates and canonical.worldState.unlocked_subjects.
+- For open_quest_subject, storyText must first narratively justify why quests belong in this moment.
+- After runtime.recentCompletion, storyText must explicitly describe what changed in the world because of that quest.
+- For open_quest_subject or subject unlocks, use only subjects found in canonical.definitions.questTemplates and canonical.worldState.unlocked_subjects.
+- When canonical.worldState carries a target quest (target_quest_slug) that is ready to open, the primary acceptance choice must use action open_target_quest with target set to that exact quest slug — never continue_story, open_quest_subject, or a freeform label for accepting that quest.
 - Build Week stages are selected by canonical.worldState.step, stage_turns, and pending_story_key. You only write the requested turn; never claim to update or advance state yourself.
-- math-intro-1 and math-intro-2: give short Math-path story beats. Only math-intro-2 may offer open_quests with value "math".
-- completion-ack: name and celebrate the completed Math quest, then notice a strange new light. Do not reveal a location or Reading yet.
-- discovery-1 and discovery-2: investigate the strange light or doorway. Keep Reading locked and do not offer quest actions.
-- library-reveal: reveal the Starlit Library and offer select_subject with value "reading".
-- At step 1 or step 5, quest cards are already visible. Do not offer duplicate quest-choice buttons.
-- Never reference or offer a quest whose slug is in canonical.worldState.completed_quest_ids.
-- Only guide the player to subjects in canonical.worldState.unlocked_subjects.
+- When no further quest or story step remains, return an intentional ending with return_home or read_chronicle.
 
 Return ONLY valid JSON (no markdown fences):
 {
@@ -50,9 +49,10 @@ Return ONLY valid JSON (no markdown fences):
   "choices": [
     {
       "id": "unique-kebab-id",
-      "label": "2-5 word button label",
-      "action": "continue | select_subject | open_quests | spin_wheel",
-      "value": "optional — unlocked subject slug from canonical definitions when select_subject or open_quests"
+      "label": "2-5 word button label tied to storyText",
+      "action": "continue_story | open_quest_subject | open_target_quest | ask_companion | inspect_world_element | return_home | read_chronicle | activate_brain_boost | spin_wheel",
+      "value": "optional subject slug when action is open_quest_subject",
+      "target": "quest slug when action is open_target_quest; otherwise an optional world element or companion topic slug"
     }
   ],
   "lootAward": {
@@ -64,8 +64,7 @@ Return ONLY valid JSON (no markdown fences):
 Rules:
 - choices: 2 to 4 items.
 - lootAward: include rarely (roughly 1 in 8 turns) when the story moment fits; omit otherwise.
-- When no subject selected yet, include select_subject choices.
-- When subject selected, prefer open_quests or continue.`;
+- Legacy actions continue, select_subject, and open_quests are forbidden in new output.`;
 
 function buildUserPrompt(context: Record<string, unknown>) {
   return `Generate the next Chronicles turn:
@@ -105,6 +104,41 @@ async function callOpenAI(apiKey: string, context: Record<string, unknown>) {
   return JSON.parse(content);
 }
 
+const VALID_ACTIONS = new Set([
+  "continue_story",
+  "open_quest_subject",
+  "open_target_quest",
+  "ask_companion",
+  "inspect_world_element",
+  "return_home",
+  "read_chronicle",
+  "activate_brain_boost",
+  "spin_wheel",
+  "continue",
+  "select_subject",
+  "open_quests"
+]);
+
+const LEGACY_ACTION_ALIASES: Record<string, string> = {
+  continue: "continue_story",
+  select_subject: "open_quest_subject",
+  open_quests: "open_quest_subject"
+};
+
+function normalizeStoryAction(action: unknown) {
+  const raw = String(action ?? "continue_story");
+  if (VALID_ACTIONS.has(raw) && !LEGACY_ACTION_ALIASES[raw]) return raw;
+  return LEGACY_ACTION_ALIASES[raw] ?? "continue_story";
+}
+
+function choiceFunctionalKey(choice: {
+  action: string;
+  value: string | null;
+  target: string | null;
+}) {
+  return [choice.action, choice.value ?? "", choice.target ?? ""].join(":");
+}
+
 function validateTurn(raw: { storyText?: string; choices?: unknown[]; lootAward?: unknown }) {
   if (!raw?.storyText || typeof raw.storyText !== "string") {
     throw new Error("Invalid response: missing storyText");
@@ -117,13 +151,20 @@ function validateTurn(raw: { storyText?: string; choices?: unknown[]; lootAward?
 
   const normalized = choices.map((choice, index) => {
     const c = choice as Record<string, unknown>;
+    const action = normalizeStoryAction(c.action);
     return {
       id: String(c.id ?? `choice-${index + 1}`),
       label: String(c.label ?? `Option ${index + 1}`),
-      action: String(c.action ?? "continue"),
-      value: c.value != null ? String(c.value) : null
+      action,
+      value: c.value != null ? String(c.value) : null,
+      target: c.target != null ? String(c.target) : null
     };
   });
+
+  const functionalKeys = normalized.map(choiceFunctionalKey);
+  if (new Set(functionalKeys).size !== functionalKeys.length) {
+    throw new Error("Invalid response: choices must have distinct immediate effects");
+  }
 
   const result: Record<string, unknown> = {
     storyText: raw.storyText.trim(),

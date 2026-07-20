@@ -1030,6 +1030,51 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       box-shadow: 0 4px 0 #8a6910;
     }
 
+    #rewardOverlay.open .modal-gold {
+      animation: reward-fade-in 220ms ease-out;
+    }
+
+    .reward-total {
+      margin: 8px 0 14px;
+      text-align: center;
+      color: var(--gold-light);
+      font-family: var(--readable);
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .reward-list {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .reward-row {
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 229, 102, 0.45);
+      border-radius: 6px;
+      background: rgba(17, 12, 37, 0.72);
+      color: #f5f1ff;
+      font-family: var(--readable);
+    }
+
+    .reward-row--level-up {
+      border-color: var(--gold-light);
+      box-shadow: 0 0 12px rgba(255, 229, 102, 0.35);
+    }
+
+    .reward-level-up {
+      display: block;
+      margin-top: 4px;
+      color: var(--gold-light);
+      font-weight: 700;
+    }
+
+    @keyframes reward-fade-in {
+      from { opacity: 0; transform: translateY(8px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
     .toast {
       position: fixed;
       left: 50%;
@@ -1501,26 +1546,44 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
     </div>
   </div>
 
+  <!-- Quest Reward Modal -->
+  <div class="overlay" id="rewardOverlay" aria-hidden="true">
+    <div class="modal-gold" role="dialog" aria-modal="true" aria-labelledby="rewardTitle">
+      <h3 class="modal-title" id="rewardTitle">QUEST COMPLETE</h3>
+      <p class="reward-total" id="rewardTotal"></p>
+      <div class="reward-list" id="rewardList"></div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn--gold" id="continueRewardBtn" type="button">Continue</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script type="module">
     import { supabase } from "./supabaseClient.js";
-    import { hydratePlayerProfile } from "./playerProfile.js";
+    import { applyProgressionSnapshot, hydratePlayerProfile } from "./playerProfile.js";
     import {
       hydrateQuestState,
       syncQuestState,
-      recordQuestClaim,
+      claimQuestAndAwardProgression,
       ensureDailyQuests,
+      ensureBuildWeekDailyPlan,
       startQuestTimer,
       markQuestReady,
       verifyParentPin,
       applyActiveQuests,
       fetchActiveQuests,
       isValidSubjectSlug,
-      buildSubjectsFromTemplates
+      buildSubjectsFromTemplates,
+      persistWorldState,
+      getNextIncompleteQuest,
+      getQuestTarget,
+      getNextIncompleteSubject,
+      getTargetSubject
     } from "./questSync.js";
     import { createAuthController } from "./authPanel.js";
-    import { hydrateDiscoveryContent, recordTransmissionWatch } from "./discoveryContent.js";
+    import { hydrateDiscoveryContent, hydrateScrollOfKnowledge, recordTransmissionWatch } from "./discoveryContent.js";
     import { createStoryEngine, validateStoryTurn } from "./storyEngine.js";
     import {
       hydrateInventory,
@@ -1533,21 +1596,21 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
     window.__hydrateProfile = async (config, gameState, session = null) => {
       try {
-        const row = await hydratePlayerProfile(supabase, config, gameState, session);
-        if (row) {
+        const result = await hydratePlayerProfile(supabase, config, gameState, session);
+        if (result) {
           console.info(
             "Profile synced from Supabase:",
-            row.player_name,
+            result.profile.player_name,
             "·",
-            row.rank_ribbon
+            result.progression.rank.name
           );
         } else {
           console.warn("Profile sync skipped — no session or profile row.");
         }
-        return row;
+        return result;
       } catch (err) {
         console.warn("Supabase profile load failed:", err);
-        return null;
+        throw err;
       }
     };
 
@@ -1569,24 +1632,42 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       }
     };
 
-    window.__recordQuestClaim = async (questId, rewardXp, newXpTotal, claimDate, activeQuestId = null) => {
+    window.__claimQuestAndAwardProgression = async (activeQuestId, verificationInput = null) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) throw new Error("Not signed in");
 
       try {
-        return await recordQuestClaim(
+        return await claimQuestAndAwardProgression(
           supabase,
-          session.user.id,
-          questId,
-          rewardXp,
-          claimDate,
-          newXpTotal,
-          activeQuestId
+          activeQuestId,
+          verificationInput
         );
       } catch (err) {
         console.warn("Supabase claim sync failed:", err);
         throw err;
       }
+    };
+
+    window.__applyProgressionSnapshot = (snapshot, config, gameState) => {
+      applyProgressionSnapshot(snapshot, config, gameState);
+    };
+
+    window.__getNextIncompleteQuest = (gameState) => getNextIncompleteQuest(gameState);
+    window.__getQuestTarget = (gameState) => getQuestTarget(gameState);
+    window.__getNextIncompleteSubject = (gameState) => getNextIncompleteSubject(gameState);
+    window.__getTargetSubject = (gameState) => getTargetSubject(gameState);
+
+    window.__ensureBuildWeekDailyPlan = async (gameState, todayKey) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return [];
+      const rows = await ensureBuildWeekDailyPlan(
+        supabase,
+        session.user.id,
+        todayKey,
+        gameState.worldState?.completedQuestIds ?? []
+      );
+      applyActiveQuests(rows, gameState);
+      return rows;
     };
 
     window.__ensureDailyQuests = async (gameState, todayKey, subject) => {
@@ -1685,11 +1766,12 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         }
       }
 
-      await Promise.all([
-        window.__hydrateProfile(config, gameState, session).catch(err => {
+      await window.__hydrateProfile(config, gameState, session).catch(err => {
           console.error("Profile refresh failed:", err);
           return null;
-        }),
+        });
+
+      await Promise.all([
         typeof window.__hydrateQuest === "function"
           ? window.__hydrateQuest(gameState, window.__todayKey(), session).catch(err => {
               console.error("Quest refresh failed:", err);
@@ -1740,15 +1822,24 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
     };
 
     window.__initStoryEngine = async (config, gameState, callbacks) => {
-      try {
-        const engine = createStoryEngine(supabase, config, gameState, callbacks);
-        await engine.bootstrap();
-        window.__storyEngine = engine;
-        return engine;
-      } catch (err) {
-        console.warn("Story engine init failed:", err);
-        return null;
+      if (window.__storyEngineBootstrapPromise) {
+        return window.__storyEngineBootstrapPromise;
       }
+
+      window.__storyEngineBootstrapPromise = (async () => {
+        try {
+          const engine = createStoryEngine(supabase, config, gameState, callbacks);
+          await engine.bootstrap();
+          window.__storyEngine = engine;
+          return engine;
+        } catch (err) {
+          window.__storyEngineBootstrapPromise = null;
+          console.warn("Story engine init failed:", err);
+          return null;
+        }
+      })();
+
+      return window.__storyEngineBootstrapPromise;
     };
 
     window.__recordTransmissionWatch = (session = null) => recordTransmissionWatch(supabase, session);
@@ -1778,6 +1869,8 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       },
       async onSignedOut() {
         window.__dashboardReady = false;
+        window.__storyEngine = null;
+        window.__storyEngineBootstrapPromise = null;
       }
     }).bootstrap().catch((err) => {
       console.warn("Auth bootstrap failed:", err);
@@ -1792,27 +1885,34 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
     const CONFIG = {
       // Build Week demo: fixed Math quests feed one narrowly scoped staged story.
       buildWeek: {
-        mathQuestSlugs: ["math-ba-online", "math-ba-workbook", "math-morning-sheet"],
+        subjectOrder: ["brain", "math", "reading"],
+        mathQuestSlugs: ["math-ba-online", "math-ba-workbook", "math-ba-puzzle"],
         destinationLocationSlug: "starlit-library",
         destinationLocationLabel: "Starlit Library",
-        startingSubjectSlug: "math",
+        startingSubjectSlug: "brain",
         destinationSubjectSlug: "reading",
         destinationSubjectLabel: "Reading"
       },
-      player: { name: "NIMPOL", rank: "Wanderer", xp: 1448, xpToNextRank: 2000 },
+      player: { name: "NIMPOL", rank: "Wanderer", xp: 0, xpToNextRank: null },
       attributes: [
-        { id: "mana",       label: "Mana",       current: 62, max: 100, diamond: "mana",       barClass: "bar-mana" },
-        { id: "intellect",  label: "Intellect",  current: 88, max: 100, diamond: "intellect",  barClass: "bar-intellect" },
-        { id: "lore",       label: "Lore",       current: 30, max: 100, diamond: "lore",       barClass: "bar-lore" },
-        { id: "perception", label: "Perception", current: 71, max: 100, diamond: "perception", barClass: "bar-perception" },
-        { id: "charisma",   label: "Charisma",   current: 45, max: 100, diamond: "charisma",   barClass: "bar-charisma" },
-        { id: "stamina",    label: "Stamina",    current: 50, max: 100, diamond: "stamina",    barClass: "bar-stamina" }
+        { id: "mana",       label: "Mana",       current: 0, max: 1, level: 1, progressText: "", diamond: "mana",       barClass: "bar-mana" },
+        { id: "knowledge",  label: "Knowledge",  current: 0, max: 1, level: 1, progressText: "", diamond: "intellect",  barClass: "bar-intellect" },
+        { id: "perception", label: "Perception", current: 0, max: 1, level: 1, progressText: "", diamond: "perception", barClass: "bar-perception" },
+        { id: "creativity", label: "Creativity", current: 0, max: 1, level: 1, progressText: "", diamond: "lore",       barClass: "bar-lore" },
+        { id: "stamina",    label: "Stamina",    current: 0, max: 1, level: 1, progressText: "", diamond: "stamina",    barClass: "bar-stamina" },
+        { id: "resolve",    label: "Resolve",    current: 0, max: 1, level: 1, progressText: "", diamond: "charisma",   barClass: "bar-charisma" }
       ],
       defaultInsight: "Today's Insight: Granite is an igneous rock formed by cooling magma underground; it is incredibly durable and forms the core of major mountain ranges.",
       defaultStory: {
-        storyText: "Good morning, Nimpol! Your focus crystal hums softly. How shall we begin today's chronicle?",
+        storyText: "Good morning, Nimpol! Your focus crystal hums softly beside the Scroll of Knowledge. Nutty says today's Brain Boost can sharpen your mind before the path ahead.",
         choices: [
-          { id: "im-ready", label: "I'm Ready", action: "select_subject", value: "math" }
+          { id: "use-brain-boost", label: "Use Brain Boost", action: "activate_brain_boost" },
+          {
+            id: "ask-brain-boost",
+            label: "What is Brain Boost?",
+            action: "ask_companion",
+            target: "brain-boost"
+          }
         ]
       },
       questTemplates: {
@@ -1861,11 +1961,16 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         step: 0,
         stageTurns: 0,
         pendingStoryKey: null,
+        scrollComplete: false,
+        targetQuestSlug: null,
+        targetSubject: null,
         unlockedLocations: [],
         unlockedSubjects: [CONFIG.buildWeek.startingSubjectSlug],
-        completedQuestIds: []
+        completedQuestIds: [],
+        knowledgeLibraryEligible: false
       },
-      recentCompletion: null
+      recentCompletion: null,
+      progression: null
     };
 
     function getDisplayPlayerName() {
@@ -1922,6 +2027,9 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         step: Number(state.worldState?.step) || 0,
         stageTurns: Math.max(0, Number(state.worldState?.stageTurns) || 0),
         pendingStoryKey: state.worldState?.pendingStoryKey ?? null,
+        scrollComplete: Boolean(state.worldState?.scrollComplete),
+        targetQuestSlug: state.worldState?.targetQuestSlug ?? null,
+        targetSubject: state.worldState?.targetSubject ?? null,
         unlockedLocations: Array.isArray(state.worldState?.unlockedLocations)
           ? state.worldState.unlockedLocations
           : [],
@@ -1930,8 +2038,11 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
           : [CONFIG.buildWeek.startingSubjectSlug],
         completedQuestIds: Array.isArray(state.worldState?.completedQuestIds)
           ? state.worldState.completedQuestIds
-          : []
+          : [],
+        knowledgeLibraryEligible: Boolean(state.worldState?.knowledgeLibraryEligible)
       };
+      // Progression is always rehydrated from the server for the active session.
+      state.progression = null;
 
       if (state.lastResetDate !== todayKey()) {
         state.claimedToday = [];
@@ -2086,36 +2197,33 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       return state.worldState.completedQuestIds.includes(id);
     }
 
-    // Build Week: subject selection and quest-card visibility are separate stages.
+    // Build Week: story progresses by subject stage; drawer shows all assigned
+    // quests for the current targetSubject as player choices.
+    function getCurrentTargetSubject() {
+      return typeof window.__getTargetSubject === "function"
+        ? window.__getTargetSubject(state)
+        : state.worldState?.targetSubject ?? null;
+    }
+
     function shouldShowQuestCards(id) {
-      if (id === CONFIG.buildWeek.startingSubjectSlug) return state.worldState.step === 1;
-      if (id === CONFIG.buildWeek.destinationSubjectSlug) return state.worldState.step === 5;
-      return true;
+      if (state.worldState?.step !== 1) return false;
+      return getCurrentTargetSubject() === id;
     }
 
     function getSubjectCards(id) {
       if (!shouldShowQuestCards(id)) return [];
 
-      const active = (state.activeQuests ?? []).filter(
-        (q) => q.subject === id && !isQuestPermanentlyCompleted(q.id)
-      );
-      if (active.length) return active.map((q) => syncLocalQuestTimer({ ...q }));
-
-      const fromTemplates = (state.questTemplates ?? []).filter(
-        (t) => t.subject === id && !isQuestPermanentlyCompleted(t.slug)
-      );
-      if (fromTemplates.length) return fromTemplates.map(mapTemplateToCard);
-
-      return (CONFIG.questTemplates[id] || [])
-        .filter((c) => !isQuestPermanentlyCompleted(c.id))
-        .map((c) => ({
-          ...c,
-          subject: id,
-          toolName: c.toolName ?? "Quest",
-          verificationType: "instant",
-          status: state.claimedToday.includes(c.id) ? "claimed" : "assigned",
-          activeQuestId: null
-        }));
+      return (state.activeQuests ?? [])
+        .filter(
+          (quest) =>
+            quest.activeQuestId &&
+            quest.subject === id &&
+            quest.status !== "claimed" &&
+            !state.claimedToday.includes(quest.id) &&
+            !isQuestPermanentlyCompleted(quest.id)
+        )
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || String(a.id).localeCompare(String(b.id)))
+        .map((quest) => syncLocalQuestTimer({ ...quest }));
     }
 
     function getQuestById(id) {
@@ -2313,12 +2421,55 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       overlay.setAttribute("aria-hidden", "true");
     }
 
+    function showQuestReward(rewards) {
+      if (!rewards || !Array.isArray(rewards.attributes)) {
+        throw new Error("Quest claim returned no reward summary.");
+      }
+
+      const total = document.getElementById("rewardTotal");
+      const list = document.getElementById("rewardList");
+      total.textContent = `+${formatNumber(rewards.total_xp_gained)} Total XP`;
+      list.replaceChildren();
+
+      rewards.attributes.forEach((reward) => {
+        const row = document.createElement("div");
+        row.className = reward.level_up
+          ? "reward-row reward-row--level-up"
+          : "reward-row";
+
+        const gain = document.createElement("span");
+        gain.textContent = `${reward.display_name}: +${formatNumber(reward.xp_gained)} XP`;
+        row.appendChild(gain);
+
+        if (reward.level_up) {
+          const levelUp = document.createElement("span");
+          levelUp.className = "reward-level-up";
+          levelUp.textContent = `Level Up! Level ${reward.new_level} Reached`;
+          row.appendChild(levelUp);
+        }
+
+        list.appendChild(row);
+      });
+
+      const overlay = document.getElementById("rewardOverlay");
+      overlay.classList.add("open");
+      overlay.setAttribute("aria-hidden", "false");
+      document.getElementById("continueRewardBtn").focus();
+    }
+
+    function closeQuestReward() {
+      const overlay = document.getElementById("rewardOverlay");
+      overlay.classList.remove("open");
+      overlay.setAttribute("aria-hidden", "true");
+    }
+
     async function submitPin() {
       if (pinBuffer.length !== 4) return;
       const questId = pendingPinQuestId;
+      const verificationInput = pinBuffer;
       const ok = typeof window.__verifyParentPin === "function"
-        ? await window.__verifyParentPin(pinBuffer)
-        : pinBuffer === "1234";
+        ? await window.__verifyParentPin(verificationInput)
+        : verificationInput === "1234";
 
       if (!ok) {
         const err = document.getElementById("pinError");
@@ -2340,7 +2491,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       }
       saveState();
       renderQuestList();
-      await claimReward(questId);
+      await claimReward(questId, verificationInput);
     }
 
     function openInventoryModal() {
@@ -2374,32 +2525,28 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       }
     }
 
-    function updateXPBar(value) {
-      const max = CONFIG.player.xpToNextRank;
-      document.getElementById("xpFill").style.width = `${percent(value, max)}%`;
-      document.getElementById("xpText").textContent = `${formatNumber(value)} / ${formatNumber(max)} XP`;
-      document.getElementById("xpTrack").setAttribute("aria-valuenow", String(value));
-    }
-
-    function animateXP(from, to, duration = 950) {
-      return new Promise(resolve => {
-        animatingXP = true;
-        const start = performance.now();
-        function step(now) {
-          const t = Math.min(1, (now - start) / duration);
-          updateXPBar(Math.round(from + (to - from) * (1 - Math.pow(1 - t, 3))));
-          if (t < 1) requestAnimationFrame(step);
-          else { animatingXP = false; resolve(); }
-        }
-        requestAnimationFrame(step);
-      });
+    function updateXPBar() {
+      const snapshot = state.progression;
+      if (!snapshot?.rank) return;
+      const progress = snapshot.rank.rank_span_xp == null ? 1 : snapshot.rank.progress_xp;
+      const span = snapshot.rank.rank_span_xp ?? 1;
+      document.getElementById("xpFill").style.width = `${percent(progress, span)}%`;
+      document.getElementById("xpText").textContent = snapshot.rank.next_rank_name
+        ? `${formatNumber(snapshot.total_xp)} XP · ${formatNumber(snapshot.rank.xp_to_next_rank)} to ${snapshot.rank.next_rank_name}`
+        : `${formatNumber(snapshot.total_xp)} XP · Max Rank`;
+      document.getElementById("xpTrack").setAttribute("aria-valuemax", String(span));
+      document.getElementById("xpTrack").setAttribute("aria-valuenow", String(progress));
     }
 
     function renderAttributes() {
+      if (!state.progression) {
+        document.getElementById("attrList").innerHTML = "";
+        return;
+      }
       document.getElementById("attrList").innerHTML = CONFIG.attributes.map(a => `
-        <div class="attr-row">
+        <div class="attr-row" data-attr="${a.id}">
           <div class="diamond diamond--${a.diamond}" aria-hidden="true"></div>
-          <span class="attr-label">${a.label} ${a.current}/${a.max}</span>
+          <span class="attr-label">${a.label} — Lv. ${a.level} ${a.progressText}</span>
           <div class="attr-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="${a.max}" aria-valuenow="${a.current}" aria-label="${a.label}">
             <div class="attr-bar-fill ${a.barClass}" style="width:${percent(a.current, a.max)}%"></div>
           </div>
@@ -2434,7 +2581,9 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
       const defaultTurn = getDefaultStoryTurn();
       document.getElementById("dialogueText").textContent = defaultTurn.storyText;
-      renderInteractionChoices(defaultTurn.choices);
+      // Hold choices until storyEngine bootstrap finishes to avoid a flash
+      // of opening buttons that are replaced by the resumed beat.
+      renderInteractionChoices([]);
     }
 
     function renderInteractionChoices(choices) {
@@ -2447,8 +2596,9 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         btn.className = "btn-emerald";
         btn.textContent = choice.label;
         btn.dataset.storyChoice = choice.id;
-        btn.dataset.storyAction = choice.action || "continue";
+        btn.dataset.storyAction = choice.action || "continue_story";
         if (choice.value) btn.dataset.storyValue = choice.value;
+        if (choice.target) btn.dataset.storyTarget = choice.target;
         container.appendChild(btn);
       });
     }
@@ -2492,7 +2642,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       }
     }
 
-    async function setSubject(id, fromStory = false) {
+    async function setSubject(id, fromStory = false, highlightQuestId = null) {
       if (!isKnownSubject(id) || !isSubjectUnlocked(id)) return;
 
       state.selectedSubject = id;
@@ -2505,10 +2655,27 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         }
       }
 
-      const first = shouldShowQuestCards(id)
-        ? getSubjectCards(id).find((c) => c.status !== "claimed" && !state.claimedToday.includes(c.id))
-        : null;
-      state.highlightedQuestId = first ? first.id : null;
+      // Optional highlight only when a specific card was selected; subject
+      // open shows all assigned choices without forcing one target quest.
+      if (highlightQuestId != null) {
+        const match = (state.activeQuests ?? []).find(
+          (quest) =>
+            quest.id === highlightQuestId &&
+            quest.subject === id &&
+            quest.activeQuestId &&
+            quest.status !== "claimed" &&
+            !state.claimedToday.includes(quest.id)
+        );
+        state.highlightedQuestId = match ? match.id : null;
+        if (match) {
+          state.worldState = {
+            ...state.worldState,
+            targetQuestSlug: match.id
+          };
+        }
+      } else {
+        state.highlightedQuestId = null;
+      }
       if (fromStory) state.lastWheelResult = null;
       saveState();
       renderQuestList();
@@ -2518,7 +2685,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
     function openPortal(url) { if (url) window.open(url, "_blank", "noopener,noreferrer"); }
 
-    async function claimReward(questId) {
+    async function claimReward(questId, verificationInput = null) {
       if (animatingXP || state.claimedToday.includes(questId)) return;
       const quest = getQuestById(questId);
       if (!quest || quest.status === "claimed") return;
@@ -2534,96 +2701,82 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         }
       }
 
-      if (quest.verificationType === "parent_code" && quest.status !== "ready") {
+      if (quest.verificationType === "parent_code" && !verificationInput) {
         openPinModal(questId);
         return;
       }
 
-      state.claimedToday.push(questId);
-      if (quest.activeQuestId) {
+      if (!quest.activeQuestId || typeof window.__claimQuestAndAwardProgression !== "function") {
+        showToast("Quest claiming is unavailable.");
+        return;
+      }
+
+      animatingXP = true;
+      try {
+        const claimResult = await window.__claimQuestAndAwardProgression(
+          quest.activeQuestId,
+          verificationInput
+        );
+
+        window.__applyProgressionSnapshot?.(claimResult.progression, CONFIG, state);
+        state.worldState = claimResult.worldState;
+        state.selectedSubject = null;
+
+        if (!state.claimedToday.includes(questId)) {
+          state.claimedToday.push(questId);
+        }
         const idx = (state.activeQuests ?? []).findIndex((q) => q.id === questId);
-        if (idx >= 0) state.activeQuests[idx].status = "claimed";
-      }
-      if (state.highlightedQuestId === questId) state.highlightedQuestId = null;
-      saveState();
-      renderQuestList();
+        if (idx >= 0) {
+          state.activeQuests[idx].status = "claimed";
+          state.activeQuests[idx].claimedAt = new Date().toISOString();
+        }
+        if (state.highlightedQuestId === questId) state.highlightedQuestId = null;
 
-      const from = state.xp;
-      playRewardChime();
-      await animateXP(from, from + quest.reward);
-      state.xp = from + quest.reward;
-      CONFIG.player.xp = state.xp;
-      saveState();
-
-      let claimSyncFailed = false;
-      let demoProgressed = false;
-      if (typeof window.__recordQuestClaim === "function") {
+        // Subject-stage progression: claiming any one quest completes that
+        // subject for the story. Resolve the next incomplete subject (not the
+        // next individual quest). Unselected same-subject quests stay assigned.
+        let nextSubject = null;
         try {
-          const claimResult = await window.__recordQuestClaim(
+          nextSubject = window.__getNextIncompleteSubject?.(state) ?? null;
+        } catch (resolveErr) {
+          console.warn("Next subject resolution failed:", resolveErr);
+          showToast("Quest claimed! Resolving your next subject — try again if it doesn't appear.");
+        }
+        state.worldState = {
+          ...state.worldState,
+          targetQuestSlug: null,
+          targetSubject: nextSubject
+        };
+
+        const demoProgressed = claimResult.storyProgressed
+          || String(state.worldState.pendingStoryKey ?? "").startsWith("completion-ack:");
+
+        if (demoProgressed) {
+          state.recentCompletion = {
             questId,
-            quest.reward,
-            state.xp,
-            todayKey(),
-            quest.activeQuestId ?? null
-          );
-
-          // Build Week: UI mirrors the Math-completion transition owned by questSync.
-          if (claimResult?.demoProgressed && claimResult.worldState) {
-            demoProgressed = true;
-            state.worldState = claimResult.worldState;
-            state.recentCompletion = {
-              questId,
-              questTitle: quest.title,
-              subject: quest.subject
-            };
-            saveState();
-            renderQuestList();
-            renderSubjectPickerGrid();
-
-            if (window.__storyEngine?.acknowledgeCompletion) {
-              await window.__storyEngine.acknowledgeCompletion();
-            }
-          }
-        } catch (err) {
-          claimSyncFailed = true;
-          if (CONFIG.buildWeek.mathQuestSlugs.includes(questId)) {
-            showToast("Quest claimed, but story progress failed. Refreshing...");
-            // Build Week writes are not atomic; rehydrate the confirmed server state.
-            if (typeof window.__hydrateQuest === "function") {
-              await window.__hydrateQuest(state, todayKey());
-              if (String(state.worldState.pendingStoryKey ?? "").startsWith("completion-ack:")) {
-                state.recentCompletion = {
-                  questId,
-                  questTitle: quest.title,
-                  subject: quest.subject
-                };
-              }
-              saveState();
-              renderQuestList();
-              renderSubjectPickerGrid();
-              if (window.__storyEngine?.acknowledgeCompletion) {
-                await window.__storyEngine.acknowledgeCompletion();
-              }
-            }
-          } else {
-            showToast("Claim saved locally; cloud sync failed.");
-          }
+            questTitle: quest.title,
+            subject: quest.subject
+          };
         }
-      }
 
-      if (!claimSyncFailed && typeof window.__maybeAwardLoot === "function") {
-        try {
-          const item = await window.__maybeAwardLoot("quest");
-          if (item) showToast(`Loot found: ${item.icon ?? "🎁"} ${item.name}!`);
-        } catch (err) {
-          console.warn("Loot award failed:", err);
+        saveState();
+        renderProfilePanel();
+        renderQuestList();
+        renderSubjectPickerGrid();
+        playRewardChime();
+        showQuestReward(claimResult.rewards);
+
+        if (demoProgressed && window.__storyEngine?.acknowledgeCompletion) {
+          await window.__storyEngine.acknowledgeCompletion();
         }
-      }
 
-      if (!claimSyncFailed && !demoProgressed) {
-        showToast(`+${quest.reward} XP earned!`);
+        updateInlineKnowledge(getKnowledgeFact());
+      } catch (err) {
+        console.warn("Quest claim failed:", err);
+        showToast(err?.message || "Quest claim failed.");
+      } finally {
+        animatingXP = false;
       }
-      updateInlineKnowledge(getKnowledgeFact());
     }
 
     function getCssColor(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
@@ -2829,6 +2982,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       document.getElementById("inventoryBtn").addEventListener("click", openInventoryModal);
       document.getElementById("closeInventoryBtn").addEventListener("click", closeInventoryModal);
       document.getElementById("closePinBtn").addEventListener("click", closePinModal);
+      document.getElementById("continueRewardBtn").addEventListener("click", closeQuestReward);
       document.getElementById("closeSubjectBtn").addEventListener("click", closeSubjectPicker);
       document.getElementById("subjectOverlay").addEventListener("click", (e) => {
         if (e.target.id === "subjectOverlay") closeSubjectPicker();
@@ -2838,6 +2992,9 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       });
       document.getElementById("pinOverlay").addEventListener("click", e => {
         if (e.target.id === "pinOverlay") closePinModal();
+      });
+      document.getElementById("rewardOverlay").addEventListener("click", e => {
+        if (e.target.id === "rewardOverlay") closeQuestReward();
       });
       document.getElementById("watchTransmissionBtn").addEventListener("click", async () => {
         const btn = document.getElementById("watchTransmissionBtn");
@@ -2863,12 +3020,20 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       const playerName = document.getElementById("playerName");
       const playerRank = document.getElementById("playerRank");
       const bannerTitle = document.getElementById("bannerTitle");
+      const xpText = document.getElementById("xpText");
+      const attrList = document.getElementById("attrList");
       if (playerName) playerName.textContent = "…";
       if (playerRank) playerRank.textContent = "…";
       if (bannerTitle) bannerTitle.textContent = "The Chronicles of …";
+      if (xpText) xpText.textContent = "…";
+      if (attrList) attrList.innerHTML = "";
     }
 
     function renderProfilePanel() {
+      if (!state.progression) {
+        showProfileLoading();
+        return;
+      }
       const name = getDisplayPlayerName();
       const rank = CONFIG.player.rank || "Wanderer";
 
@@ -2884,7 +3049,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       if (avatarImg) avatarImg.alt = name;
 
       renderAttributes();
-      updateXPBar(state.xp);
+      updateXPBar();
     }
 
     function renderDefaults() {
@@ -2920,12 +3085,22 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         openSubjectPicker,
         showToast,
         fetchInventory: window.__fetchInventory ?? (async () => []),
-        awardItemBySlug: window.__awardItemBySlug ?? (async () => null)
+        awardItemBySlug: window.__awardItemBySlug ?? (async () => null),
+        activateBrainBoost: async () => {
+          document.querySelector(".discovery-section")?.scrollIntoView({
+            behavior: "smooth",
+            block: "nearest"
+          });
+          if (typeof window.__hydrateScrollOfKnowledge === "function") {
+            await window.__hydrateScrollOfKnowledge(CONFIG.defaultInsight);
+          }
+        }
       });
     }
 
     async function launchDashboard(session = null) {
       loadState();
+      state.progression = null;
       showProfileLoading();
 
       try {
@@ -2938,13 +3113,15 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
           }
         }
 
-        const profilePromise =
-          typeof window.__hydrateProfile === "function"
-            ? window.__hydrateProfile(CONFIG, state, session).catch(err => {
-                console.error("Profile hydration failed:", err);
-                return null;
-              })
-            : Promise.resolve(null);
+        if (typeof window.__hydrateProfile === "function") {
+          try {
+            await window.__hydrateProfile(CONFIG, state, session);
+          } catch (err) {
+            console.error("Profile hydration failed:", err);
+            showToast(err?.message || "Progression could not be loaded.");
+          }
+        }
+
         const questPromise =
           typeof window.__hydrateQuest === "function"
             ? window.__hydrateQuest(state, todayKey(), session).catch(err => {
@@ -2967,15 +3144,16 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
               })
             : Promise.resolve([]);
 
-        // Render profile/quests immediately — do not block on story engine (AI can hang)
-        await Promise.all([profilePromise, questPromise, scrollPromise, inventoryPromise]);
+        await Promise.all([questPromise, scrollPromise, inventoryPromise]);
+
+        // Bootstrap story before rendering dialogue so the first visible
+        // beat matches world state and choices are not replaced immediately.
+        if (state.progression) {
+          await initStoryEngine();
+        }
 
         renderDashboard();
         ensureQuestTimerTick();
-
-        initStoryEngine().catch(err => {
-          console.error("Story engine initialization failed:", err);
-        });
       } catch (err) {
         console.error("Dashboard launch failed:", err);
         renderDashboard();
@@ -2998,7 +3176,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
     loadState();
     renderAttributes();
-    updateXPBar(state.xp);
+    updateXPBar();
     updateInlineKnowledge(CONFIG.defaultInsight);
     renderQuestList();
     updateWheelStatus();
