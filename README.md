@@ -22,6 +22,18 @@ Every child builds a Chronicle that is uniquely their own.
 
 
 
+## **Live Demo**
+
+🎥 **Build Week Demo Video**
+
+Watch a guided walkthrough of the current Nimpol Chronicles prototype:
+
+[https://youtu.be/U2i6vAIXoI8](https://youtu.be/U2i6vAIXoI8)
+
+---
+
+
+
 ## **The Challenge**
 
 Children naturally learn through curiosity, imagination, and play. Yet many educational experiences separate learning from adventure.
