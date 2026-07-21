@@ -14,18 +14,33 @@ export const STORY_ACTIONS = new Set([
   "spin_wheel"
 ]);
 
-const LEGACY_ACTION_ALIASES = {
+const ACTION_ALIASES = {
   continue: "continue_story",
   select_subject: "open_quest_subject",
-  open_quests: "open_quest_subject"
+  open_quests: "open_quest_subject",
+  inspect: "inspect_world_element",
+  explore: "inspect_world_element",
+  investigate: "inspect_world_element",
+  examine: "inspect_world_element",
+  ask: "ask_companion",
+  talk: "ask_companion"
 };
 
 export const QUEST_DRAWER_ACTIONS = new Set(["open_quest_subject"]);
 
+function normalizeActionToken(action) {
+  return String(action ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, "_");
+}
+
 export function normalizeStoryAction(action) {
-  const raw = String(action ?? "continue_story");
+  const raw = normalizeActionToken(action);
+  if (!raw) return "continue_story";
+  if (ACTION_ALIASES[raw]) return ACTION_ALIASES[raw];
   if (STORY_ACTIONS.has(raw)) return raw;
-  return LEGACY_ACTION_ALIASES[raw] ?? "continue_story";
+  return "continue_story";
 }
 
 export function normalizeStoryChoice(choice, index = 0) {

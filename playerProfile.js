@@ -29,6 +29,91 @@ function attributeMeta(slug) {
   };
 }
 
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function attributePercent(current, max) {
+  const safeMax = Number(max) || 0;
+  if (safeMax <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((Number(current) / safeMax) * 100)));
+}
+
+export function possessiveName(name) {
+  const trimmed = String(name ?? "Your").trim() || "Your";
+  if (/s$/i.test(trimmed)) return `${trimmed}'`;
+  return `${trimmed}'s`;
+}
+
+export function isManaAttribute(attribute) {
+  return attribute.isMana === true || attribute.id === "mana";
+}
+
+export function splitAttributes(attributes) {
+  const manaAttribute = attributes.find(isManaAttribute);
+  const growthAttributes = attributes
+    .filter((attribute) => !isManaAttribute(attribute))
+    .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+  return { manaAttribute, growthAttributes };
+}
+
+function renderAttributeRowHTML(attr, { isMana = false } = {}) {
+  const pct = attributePercent(attr.current, attr.max);
+  const inscription = attr.worldInscription ? escapeHtml(attr.worldInscription) : "";
+  const inscriptionHtml = inscription
+    ? `<p class="attr-inscription">${inscription}</p>`
+    : "";
+
+  return `
+    <div class="attr-row${isMana ? " attr-row--mana" : ""}" data-attr="${escapeHtml(attr.id)}">
+      <div class="attr-row-icon" aria-hidden="true">
+        <div class="diamond diamond--${escapeHtml(attr.diamond)}"></div>
+      </div>
+      <div class="attr-row-content">
+        <div class="attr-header">
+          <span class="attr-name">${escapeHtml(attr.label)}</span>
+          <span class="attr-level">Lv. ${attr.level}</span>
+        </div>
+        <div class="attr-progress" role="progressbar" aria-valuemin="0" aria-valuemax="${attr.max}" aria-valuenow="${attr.current}" aria-valuetext="${pct} percent" aria-label="${escapeHtml(attr.label)}">
+          <div class="attr-progress-fill ${escapeHtml(attr.barClass)}" style="width:${pct}%"></div>
+          <span class="attr-progress-percent">${pct}%</span>
+        </div>
+        ${inscriptionHtml}
+      </div>
+    </div>
+  `;
+}
+
+export function renderLivingMagicAttributesHTML(attributes, playerName = "Your") {
+  const displayName = String(playerName ?? "Your").trim() || "Your";
+  const possessive = possessiveName(displayName);
+  const strengthsHeading = `${possessive} Strengths`;
+  const growthHeading = `${possessive} Growth`;
+  const { manaAttribute, growthAttributes } = splitAttributes(attributes);
+  let html = `<section class="living-magic-panel" aria-label="${escapeHtml(strengthsHeading)}">`;
+  html += `<h2 class="living-magic-title">${escapeHtml(strengthsHeading)}</h2>`;
+
+  if (manaAttribute) {
+    html += `<div class="living-magic-mana">`;
+    html += renderAttributeRowHTML(manaAttribute, { isMana: true });
+    html += "</div>";
+  }
+
+  if (growthAttributes.length) {
+    html += `<section class="living-magic-growth" aria-label="${escapeHtml(growthHeading)}">`;
+    html += `<h3 class="living-magic-growth-title">${escapeHtml(growthHeading)}</h3>`;
+    html += growthAttributes.map((attr) => renderAttributeRowHTML(attr)).join("");
+    html += "</section>";
+  }
+
+  html += "</section>";
+  return html;
+}
+
 /**
  * Fetch the signed-in user's profile row.
  * Falls back to null when there is no session or no row yet.
@@ -94,11 +179,20 @@ export function syncConfigFromProgression(profile, snapshot, config, gameState) 
   config.player.nextRank = snapshot.rank.next_rank_name;
 
   config.attributes = snapshot.attributes.map((attribute) => {
-    const meta = attributeMeta(attribute.slug);
+    const fallback = attributeMeta(attribute.slug);
     const atFinalLevel = attribute.next_level == null;
     return {
-      ...meta,
-      label: attribute.label ?? meta.label,
+      id: attribute.slug,
+      label: attribute.label ?? fallback.label,
+      diamond: attribute.diamond_key || fallback.diamond,
+      barClass: attribute.bar_class || fallback.barClass,
+      isMana: attribute.is_mana === true || attribute.slug === "mana",
+      sortOrder: attribute.sort_order,
+      worldInscription:
+        attribute.world_inscription ||
+        attribute.growth_description ||
+        "",
+      growthDescription: attribute.growth_description || "",
       level: attribute.level,
       nextLevel: attribute.next_level,
       attributeXp: attribute.attribute_xp,
@@ -159,20 +253,10 @@ export function applyProgressionToUI(profile, snapshot, config) {
   xpTrack.setAttribute("aria-valuemax", String(rankSpan));
   xpTrack.setAttribute("aria-valuenow", String(rankProgress));
 
-  attrList.innerHTML = config.attributes
-    .map((attr) => {
-      const pct = barPercent(attr.current, attr.max);
-      return `
-        <div class="attr-row" data-attr="${attr.id}">
-          <div class="diamond diamond--${attr.diamond}" aria-hidden="true"></div>
-          <span class="attr-label">${attr.label} — Lv. ${attr.level} ${attr.progressText}</span>
-          <div class="attr-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="${attr.max}" aria-valuenow="${attr.current}" aria-label="${attr.label}">
-            <div class="attr-bar-fill ${attr.barClass}" style="width:${pct}%"></div>
-          </div>
-        </div>
-      `;
-    })
-    .join("");
+  attrList.innerHTML = renderLivingMagicAttributesHTML(
+    config.attributes,
+    profile?.player_name ?? config.player.name
+  );
 }
 
 export function applyProgressionSnapshot(snapshot, config, gameState, profile = null) {

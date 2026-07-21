@@ -10,7 +10,8 @@ const RUNTIME_CONTEXT_KEYS = new Set([
   "recentCompletion",
   "inventory",
   "activity",
-  "quests"
+  "quests",
+  "buildWeek"
 ]);
 
 function summarizeTemplatesBySubject(gameState, completedQuestIds, unlockedSubjectSlugs) {
@@ -192,6 +193,12 @@ export function extractRuntimeContext(fallbackContext) {
       wheelSpins: quests.wheelSpins ?? 0,
       lastWheelResult: quests.lastWheelResult ?? null,
       claimedToday: quests.claimedToday ?? []
+    },
+    buildWeek: {
+      pendingStoryKey:
+        fallbackContext.buildWeek?.pendingStoryKey ??
+        fallbackContext.worldState?.pendingStoryKey ??
+        null
     }
   };
 

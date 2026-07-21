@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { ADVENTURE_CONTEXT_FALLBACK } from "./adventureContextFallback.ts";
+import { parsePendingStoryKind } from "./buildWeekDeterministicChoices.ts";
 
 const SCHEMA_VERSION = 1;
 const CANONICAL_VERSION = 1;
@@ -321,7 +322,33 @@ function buildRewardsByTemplate(
   return rewardsByTemplate;
 }
 
-function normalizeWorldState(value: unknown) {
+type NormalizedWorldState = {
+  step: number;
+  stage_turns: number;
+  pending_story_key: string | null;
+  unlocked_locations: string[];
+  unlocked_subjects: string[];
+  completed_quest_ids: string[];
+  knowledge_library_eligible: boolean;
+  target_subject: string | null;
+  target_quest_slug: string | null;
+};
+
+type AdventureBrief = {
+  beat: string;
+  scene_purpose: string;
+  emotional_goal: string;
+  target_subject: string | null;
+  allow_quest_opening: boolean;
+  require_world_change: boolean;
+  featured_character: string;
+};
+
+function pendingStoryKind(key: string | null): string {
+  return parsePendingStoryKind(key) ?? String(key ?? "").split(":")[0];
+}
+
+function normalizeWorldState(value: unknown): NormalizedWorldState {
   const state = asObject(value);
   return {
     step: asNumber(state.step),
@@ -340,8 +367,94 @@ function normalizeWorldState(value: unknown) {
     ),
     knowledge_library_eligible: Boolean(
       state.knowledge_library_eligible ?? state.knowledgeLibraryEligible
+    ),
+    target_subject: asNullableString(
+      state.target_subject ?? state.targetSubject
+    ),
+    target_quest_slug: asNullableString(
+      state.target_quest_slug ?? state.targetQuestSlug
     )
   };
+}
+
+export function buildAdventureBrief(
+  worldState: NormalizedWorldState,
+  runtime: ReturnType<typeof whitelistRuntimeFields>
+): AdventureBrief {
+  const kind = pendingStoryKind(worldState.pending_story_key);
+  const featured_character = "nutty";
+
+  const baseTargetSubject = worldState.target_subject;
+
+  switch (kind) {
+    case "completion-ack":
+      return {
+        beat: "quest_payoff",
+        scene_purpose:
+          "Show a specific, visible change in Dragon Realm caused by the completed quest.",
+        emotional_goal: "pride and curiosity",
+        target_subject:
+          runtime.recentCompletion?.subject || baseTargetSubject || null,
+        allow_quest_opening: false,
+        require_world_change: true,
+        featured_character
+      };
+    case "quest-intro-1":
+      return {
+        beat: "quest_setup",
+        scene_purpose:
+          "Introduce one concrete mystery or obstacle that naturally creates a need for the target subject.",
+        emotional_goal: "curiosity",
+        target_subject: baseTargetSubject,
+        allow_quest_opening: false,
+        require_world_change: false,
+        featured_character
+      };
+    case "quest-intro-2":
+      return {
+        beat: "quest_offer",
+        scene_purpose:
+          "Connect approved activities for the target subject to the existing story problem. Do not introduce a new problem.",
+        emotional_goal: "readiness and ownership",
+        target_subject: baseTargetSubject,
+        allow_quest_opening: true,
+        require_world_change: false,
+        featured_character
+      };
+    case "brain-boost-effect":
+      return {
+        beat: "discovery",
+        scene_purpose:
+          "Show the Brain Boost producing a meaningful clue, discovery, or world change—not merely making a crystal glow.",
+        emotional_goal: "wonder",
+        target_subject: baseTargetSubject,
+        allow_quest_opening: false,
+        require_world_change: true,
+        featured_character
+      };
+    case "demo-ending":
+      return {
+        beat: "resolution",
+        scene_purpose:
+          "Give the adventure a satisfying ending while leaving one gentle mystery open for another day.",
+        emotional_goal: "accomplishment and anticipation",
+        target_subject: baseTargetSubject,
+        allow_quest_opening: false,
+        require_world_change: false,
+        featured_character
+      };
+    default:
+      return {
+        beat: "exploration",
+        scene_purpose:
+          "Advance the active adventure through a concrete discovery or meaningful character reaction.",
+        emotional_goal: "wonder and curiosity",
+        target_subject: baseTargetSubject,
+        allow_quest_opening: false,
+        require_world_change: false,
+        featured_character
+      };
+  }
 }
 
 export function whitelistRuntimeFields(sourceValue: unknown) {
@@ -350,6 +463,7 @@ export function whitelistRuntimeFields(sourceValue: unknown) {
   const lastChoice = asObject(source.lastChoice);
   const recentCompletion = asObject(source.recentCompletion);
   const activity = asObject(source.activity);
+  const buildWeek = asObject(source.buildWeek);
 
   const storyHistory = Array.isArray(source.storyHistory)
     ? source.storyHistory.slice(-STORY_HISTORY_LIMIT).map((item) => {
@@ -430,6 +544,11 @@ export function whitelistRuntimeFields(sourceValue: unknown) {
       last_wheel_result:
         quests.last_wheel_result ?? quests.lastWheelResult ?? null,
       claimed_today: asStringArray(quests.claimed_today ?? quests.claimedToday)
+    },
+    buildWeek: {
+      pending_story_key: asNullableString(
+        buildWeek.pending_story_key ?? buildWeek.pendingStoryKey
+      )
     }
   };
 }
@@ -539,7 +658,7 @@ export async function buildAdventureContext(
     client
       .from("worlds")
       .select("id, slug, name, description, metadata")
-      .or("slug.eq.dragon-realm,name.eq.Dragon Realm")
+      .eq("slug", "dragon-realm")
       .limit(1)
       .maybeSingle(),
     client
@@ -604,6 +723,9 @@ export async function buildAdventureContext(
   const progressionWithoutEligibility = { ...progression };
   delete progressionWithoutEligibility.knowledge_library_eligible;
 
+  const normalizedWorldState = normalizeWorldState(questProgress.world_state);
+  const runtime = whitelistRuntimeFields(runtimeSource);
+
   return {
     schemaVersion: SCHEMA_VERSION,
     canonicalVersion: CANONICAL_VERSION,
@@ -622,7 +744,8 @@ export async function buildAdventureContext(
         name: asString(profile.player_name, "Nimpol")
       },
       progression: progressionWithoutEligibility,
-      worldState: normalizeWorldState(questProgress.world_state),
+      worldState: normalizedWorldState,
+      adventureBrief: buildAdventureBrief(normalizedWorldState, runtime),
       questSession: {
         selected_subject: questProgress.selected_subject,
         highlighted_quest_id: questProgress.highlighted_quest_id,
@@ -634,6 +757,6 @@ export async function buildAdventureContext(
         activeQuests
       }
     },
-    runtime: whitelistRuntimeFields(runtimeSource)
+    runtime
   };
 }
