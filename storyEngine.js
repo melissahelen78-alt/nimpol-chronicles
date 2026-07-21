@@ -105,12 +105,12 @@ function buildWeekLabelSubject(context, kind) {
 
 function subjectCompletionCelebration(subject) {
   if (subject === "math") {
-    return `The runes flash gold and settle into perfect order. Nutty spins in a circle. "The code is cracked! Those numbers never stood a chance."`;
+    return `The runes flash gold and settle into perfect order. Nutty spins in a circle. "The code is cracked! Those numbers never stood a chance." Your Chronicle records a mystery solved.`;
   }
   if (subject === "reading") {
-    return `The hidden words rise from the page like fireflies. Nutty grins. "You found the meaning beneath the mystery. The Chronicle remembers!"`;
+    return `The hidden words rise from the page like fireflies. Nutty grins. "You found the meaning beneath the mystery. The Chronicle remembers!" Your Chronicle records a hidden meaning revealed.`;
   }
-  return `The ancient stone glows brighter as the final pattern clicks into place. Nutty throws both paws into the air. "You did it, Nimpol! The path is opening!"`;
+  return `The ancient stone glows brighter as the final pattern clicks into place. Nutty throws both paws into the air. "You did it, Nimpol! The path is opening!" Your Chronicle records a new path discovered.`;
 }
 
 function applyBuildWeekSubjectChoiceLabels(choices, subject) {

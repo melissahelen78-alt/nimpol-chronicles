@@ -8,6 +8,9 @@ As the project evolves, these documents are updated before major implementation 
 
 ## Current Documents
 
+- 01-Why-Nimpol-Chronicles
+- 02-AI-Orchestration
+- 03-Dragon-Realm
 - Chapter 10 – Data Model
 
 ## Planned Documents
@@ -24,6 +27,8 @@ As the project evolves, these documents are updated before major implementation 
 - Chapter 9 – Data & Persistence Architecture
 - Chapter 11 – Player Experience
 - Database Implementation Guide
+
+
 
 ## Guidance for AI Assistants
 
