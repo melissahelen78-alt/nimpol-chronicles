@@ -86,7 +86,7 @@ export function applyApprovedTransmissionToUI(transmission) {
     delete btn.dataset.videoUrl;
     delete btn.dataset.transmissionTitle;
     delete btn.dataset.transmissionCategory;
-    btn.setAttribute("aria-label", "Watch transmission");
+    btn.setAttribute("aria-label", "Explore this wonder");
     return;
   }
 
@@ -98,7 +98,7 @@ export function applyApprovedTransmissionToUI(transmission) {
 
   if (transmission.title) {
     btn.dataset.transmissionTitle = transmission.title;
-    btn.setAttribute("aria-label", `Watch transmission: ${transmission.title}`);
+    btn.setAttribute("aria-label", `Explore this wonder: ${transmission.title}`);
   }
 
   if (transmission.category) {

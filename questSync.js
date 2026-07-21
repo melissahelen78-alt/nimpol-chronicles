@@ -2,6 +2,80 @@
  * Supabase sync for quest session state, active quests, verification, and claims.
  */
 
+export const BUILD_WEEK_SUBJECT_ORDER = ["brain", "math", "reading"];
+
+const BUILD_WEEK_STORY_QUESTS = new Set([
+  "math-ba-online",
+  "math-ba-workbook",
+  "math-ba-puzzle"
+]);
+
+const DEFAULT_WORLD_STATE = {
+  step: 0,
+  stageTurns: 0,
+  pendingStoryKey: null,
+  scrollComplete: false,
+  targetQuestSlug: null,
+  targetSubject: null,
+  unlockedLocations: [],
+  unlockedSubjects: ["brain"],
+  completedQuestIds: [],
+  knowledgeLibraryEligible: false
+};
+
+function uniqueStrings(values) {
+  return [...new Set((Array.isArray(values) ? values : []).filter(Boolean).map(String))];
+}
+
+export function normalizeWorldState(value = null) {
+  const source = value && typeof value === "object" ? value : {};
+  return {
+    step: Number.isFinite(Number(source.step)) ? Number(source.step) : DEFAULT_WORLD_STATE.step,
+    stageTurns: Number.isFinite(Number(source.stageTurns ?? source.stage_turns))
+      ? Math.max(0, Number(source.stageTurns ?? source.stage_turns))
+      : DEFAULT_WORLD_STATE.stageTurns,
+    pendingStoryKey:
+      source.pendingStoryKey ?? source.pending_story_key ?? DEFAULT_WORLD_STATE.pendingStoryKey,
+    scrollComplete: Boolean(
+      source.scrollComplete ?? source.scroll_complete ?? DEFAULT_WORLD_STATE.scrollComplete
+    ),
+    targetQuestSlug:
+      source.targetQuestSlug ?? source.target_quest_slug ?? DEFAULT_WORLD_STATE.targetQuestSlug,
+    targetSubject:
+      source.targetSubject ?? source.target_subject ?? DEFAULT_WORLD_STATE.targetSubject,
+    unlockedLocations: uniqueStrings(
+      source.unlockedLocations ?? source.unlocked_locations ?? DEFAULT_WORLD_STATE.unlockedLocations
+    ),
+    unlockedSubjects: uniqueStrings(
+      source.unlockedSubjects ?? source.unlocked_subjects ?? DEFAULT_WORLD_STATE.unlockedSubjects
+    ),
+    completedQuestIds: uniqueStrings(
+      source.completedQuestIds ?? source.completed_quest_ids ?? DEFAULT_WORLD_STATE.completedQuestIds
+    ),
+    knowledgeLibraryEligible: Boolean(
+      source.knowledgeLibraryEligible
+      ?? source.knowledge_library_eligible
+      ?? DEFAULT_WORLD_STATE.knowledgeLibraryEligible
+    )
+  };
+}
+
+function serializeWorldState(value) {
+  const worldState = normalizeWorldState(value);
+  return {
+    step: worldState.step,
+    stage_turns: worldState.stageTurns,
+    pending_story_key: worldState.pendingStoryKey,
+    scroll_complete: worldState.scrollComplete,
+    target_quest_slug: worldState.targetQuestSlug,
+    target_subject: worldState.targetSubject,
+    unlocked_locations: worldState.unlockedLocations,
+    unlocked_subjects: worldState.unlockedSubjects,
+    completed_quest_ids: worldState.completedQuestIds,
+    knowledge_library_eligible: worldState.knowledgeLibraryEligible
+  };
+}
+
 export async function getSessionUser(client) {
   const {
     data: { session },
@@ -43,6 +117,147 @@ export async function fetchQuestTemplates(client) {
 
   if (error) throw error;
   return data ?? [];
+}
+
+export function compareBuildWeekQuestOrder(a, b) {
+  const subjectRank = (subject) => {
+    const index = BUILD_WEEK_SUBJECT_ORDER.indexOf(subject);
+    return index === -1 ? 999 : index;
+  };
+  return (
+    subjectRank(a.subject) - subjectRank(b.subject) ||
+    (a.sortOrder ?? 0) - (b.sortOrder ?? 0) ||
+    String(a.id).localeCompare(String(b.id))
+  );
+}
+
+export function isBuildWeekPlanSubject(subject) {
+  return BUILD_WEEK_SUBJECT_ORDER.includes(subject);
+}
+
+export function getNextIncompleteQuest(gameState) {
+  const completed = new Set([
+    ...(gameState.worldState?.completedQuestIds ?? []),
+    ...(gameState.claimedToday ?? [])
+  ]);
+
+  const candidates = (gameState.activeQuests ?? []).filter(
+    (quest) =>
+      quest.activeQuestId &&
+      quest.status !== "claimed" &&
+      !completed.has(quest.id) &&
+      isBuildWeekPlanSubject(quest.subject)
+  );
+
+  return [...candidates].sort(compareBuildWeekQuestOrder)[0] ?? null;
+}
+
+export function getQuestTarget(gameState, slug = gameState.worldState?.targetQuestSlug) {
+  const completed = new Set([
+    ...(gameState.worldState?.completedQuestIds ?? []),
+    ...(gameState.claimedToday ?? [])
+  ]);
+
+  if (slug) {
+    const assigned = (gameState.activeQuests ?? []).find(
+      (quest) =>
+        quest.id === slug &&
+        quest.activeQuestId &&
+        quest.status !== "claimed" &&
+        !completed.has(quest.id)
+    );
+    if (assigned) return assigned;
+  }
+
+  return getNextIncompleteQuest(gameState);
+}
+
+/**
+ * Build Week subject completion: a subject is "done" for story progression
+ * purposes once the player has claimed ANY one quest from that subject.
+ * Other assigned quests in that subject remain valid, unclaimed options.
+ *
+ * Claimed quests may no longer appear in active_quests (daily plan filters
+ * completed slugs), so completion also checks quest_templates + completed ids.
+ */
+export function isSubjectComplete(gameState, subject) {
+  if (!subject) return false;
+  const completed = new Set([
+    ...(gameState.worldState?.completedQuestIds ?? []),
+    ...(gameState.claimedToday ?? [])
+  ]);
+
+  const fromActive = (gameState.activeQuests ?? []).some(
+    (quest) =>
+      quest.subject === subject &&
+      (quest.status === "claimed" || completed.has(quest.id))
+  );
+  if (fromActive) return true;
+
+  return (gameState.questTemplates ?? []).some(
+    (template) => template.subject === subject && completed.has(template.slug)
+  );
+}
+
+export function getNextIncompleteSubject(gameState) {
+  return BUILD_WEEK_SUBJECT_ORDER.find((subject) => !isSubjectComplete(gameState, subject)) ?? null;
+}
+
+export function getTargetSubject(gameState, subject = gameState.worldState?.targetSubject) {
+  if (subject && isBuildWeekPlanSubject(subject) && !isSubjectComplete(gameState, subject)) {
+    return subject;
+  }
+  return getNextIncompleteSubject(gameState);
+}
+
+export function getSubjectLabel(gameState, subjectSlug) {
+  const match = (gameState.subjects ?? []).find((s) => s.slug === subjectSlug);
+  return match?.label ?? titleCaseSubject(subjectSlug);
+}
+
+export function isBuildWeekStoryQuest(slug) {
+  return BUILD_WEEK_STORY_QUESTS.has(slug);
+}
+
+/**
+ * Ensure today's Build Week plan assigns brain → math → reading quests up front.
+ */
+export async function ensureBuildWeekDailyPlan(
+  client,
+  userId,
+  questDate,
+  completedQuestIds = []
+) {
+  const templates = await fetchQuestTemplates(client);
+  const completed = new Set(completedQuestIds ?? []);
+  const planSubjects = new Set(BUILD_WEEK_SUBJECT_ORDER);
+
+  const filtered = templates
+    .filter((template) => planSubjects.has(template.subject) && !completed.has(template.slug))
+    .sort(
+      (a, b) =>
+        BUILD_WEEK_SUBJECT_ORDER.indexOf(a.subject) -
+          BUILD_WEEK_SUBJECT_ORDER.indexOf(b.subject) ||
+        (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
+        String(a.slug).localeCompare(String(b.slug))
+    );
+
+  if (!filtered.length) return [];
+
+  const rows = filtered.map((template) => ({
+    user_id: userId,
+    template_id: template.id,
+    quest_date: questDate,
+    status: "assigned"
+  }));
+
+  const { error } = await client
+    .from("active_quests")
+    .upsert(rows, { onConflict: "user_id,template_id,quest_date", ignoreDuplicates: true });
+
+  if (error) throw error;
+
+  return fetchActiveQuests(client, userId, questDate);
 }
 
 export function titleCaseSubject(slug) {
@@ -139,6 +354,8 @@ export function mapActiveQuestToCard(row) {
     portalUrl: t.portal_url ?? null,
     verificationType: t.verification_type ?? "instant",
     delayMinutes: t.delay_minutes ?? 0,
+    sortOrder: t.sort_order ?? 0,
+    subjectSortOrder: t.subject_sort_order ?? 999,
     status: row.status,
     timerStartedAt: row.timer_started_at,
     timerReadyAt: row.timer_ready_at,
@@ -165,17 +382,26 @@ export function applyQuestProgressRow(row, gameState) {
   gameState.wheelSpins = row.wheel_spins ?? 0;
   gameState.wheelRotation = row.wheel_rotation ?? 0;
   gameState.lastResetDate = row.last_reset_date ?? gameState.lastResetDate;
+  gameState.worldState = normalizeWorldState(row.world_state);
+
+  // Build Week: a subject stored before the demo migration must not bypass its unlock.
+  if (
+    gameState.selectedSubject &&
+    !gameState.worldState.unlockedSubjects.includes(gameState.selectedSubject)
+  ) {
+    gameState.selectedSubject = null;
+  }
 }
 
 export function applyActiveQuests(rows, gameState) {
-  gameState.activeQuests = (rows ?? []).map(mapActiveQuestToCard);
+  gameState.activeQuests = (rows ?? []).map(mapActiveQuestToCard).sort(compareBuildWeekQuestOrder);
   gameState.claimedToday = gameState.activeQuests
     .filter((q) => q.status === "claimed")
     .map((q) => q.id);
 }
 
 export function questProgressPayload(userId, gameState) {
-  return {
+  const payload = {
     user_id: userId,
     selected_subject: gameState.selectedSubject,
     highlighted_quest_id: gameState.highlightedQuestId,
@@ -187,6 +413,10 @@ export function questProgressPayload(userId, gameState) {
     wheel_rotation: gameState.wheelRotation ?? 0,
     last_reset_date: gameState.lastResetDate
   };
+
+  // Build Week stage state is written only by persistWorldState(). Keeping it
+  // out of generic UI sync prevents a stale tab from regressing the story.
+  return payload;
 }
 
 export async function upsertQuestProgress(client, userId, gameState) {
@@ -198,13 +428,42 @@ export async function upsertQuestProgress(client, userId, gameState) {
 }
 
 /**
+ * Persist one Build Week world-state transition.
+ * This helper does not decide stages; storyEngine owns story transitions and
+ * The claim RPC owns the successful Math-completion transition.
+ */
+export async function persistWorldState(client, userId, value) {
+  const worldState = normalizeWorldState(value);
+  const { error } = await client
+    .from("quest_progress")
+    .upsert(
+      {
+        user_id: userId,
+        world_state: serializeWorldState(worldState)
+      },
+      { onConflict: "user_id" }
+    );
+
+  if (error) throw error;
+  return worldState;
+}
+
+/**
  * Ensure today's active_quest rows exist for a subject (or all subjects if null).
  */
-export async function ensureDailyQuests(client, userId, questDate, subject = null) {
+export async function ensureDailyQuests(
+  client,
+  userId,
+  questDate,
+  subject = null,
+  completedQuestIds = []
+) {
   const templates = await fetchQuestTemplates(client);
-  const filtered = subject
-    ? templates.filter((t) => t.subject === subject)
-    : templates;
+  const completed = new Set(completedQuestIds ?? []);
+  // Build Week: lifetime-completed templates are never assigned again on a new day.
+  const filtered = templates.filter(
+    (t) => (!subject || t.subject === subject) && !completed.has(t.slug)
+  );
 
   if (!filtered.length) return [];
 
@@ -293,39 +552,43 @@ export async function verifyParentPin(client, userId, pin) {
   return String(pin).trim() === String(expected).trim();
 }
 
-export async function recordQuestClaim(
+async function persistQuestCompletionRecovery(client, userId, currentWorldState, questId) {
+  const worldState = {
+    ...currentWorldState,
+    step: 0,
+    stageTurns: 0,
+    pendingStoryKey: `completion-ack:${questId}:${Date.now()}`,
+    completedQuestIds: uniqueStrings([
+      ...currentWorldState.completedQuestIds,
+      questId
+    ])
+  };
+  return persistWorldState(client, userId, worldState);
+}
+
+export async function claimQuestAndAwardProgression(
   client,
-  userId,
-  questId,
-  rewardXp,
-  claimDate,
-  newXpTotal,
-  activeQuestId = null
+  activeQuestId,
+  verificationInput = null
 ) {
-  const { error: claimError } = await client.from("quest_claims").insert({
-    user_id: userId,
-    quest_id: questId,
-    reward_xp: rewardXp,
-    claim_date: claimDate
+  if (!activeQuestId) throw new Error("An active quest is required.");
+
+  const { data, error } = await client.rpc("claim_quest_and_award_progression", {
+    p_active_quest_id: activeQuestId,
+    p_verification_input: verificationInput
   });
 
-  if (claimError) throw claimError;
-
-  if (activeQuestId) {
-    const { error: aqError } = await client
-      .from("active_quests")
-      .update({ status: "claimed", claimed_at: new Date().toISOString() })
-      .eq("id", activeQuestId);
-
-    if (aqError) throw aqError;
+  if (error) throw error;
+  if (!data?.progression) {
+    throw new Error("Quest claim returned no progression state.");
   }
 
-  const { error: xpError } = await client
-    .from("profiles")
-    .update({ xp_current: newXpTotal })
-    .eq("id", userId);
-
-  if (xpError) throw xpError;
+  return {
+    ...data,
+    rewardXp: data.reward_xp,
+    storyProgressed: Boolean(data.story_progressed),
+    worldState: normalizeWorldState(data.world_state)
+  };
 }
 
 export async function hydrateQuestState(client, gameState, todayKey, session = null) {
@@ -343,17 +606,53 @@ export async function hydrateQuestState(client, gameState, todayKey, session = n
 
   gameState.questTemplates = templates;
   gameState.subjects = buildSubjectsFromTemplates(templates);
+  gameState.worldState = normalizeWorldState(gameState.worldState);
 
-  if (gameState.selectedSubject) {
-    await ensureDailyQuests(client, user.id, todayKey, gameState.selectedSubject);
+  const planRows = await ensureBuildWeekDailyPlan(
+    client,
+    user.id,
+    todayKey,
+    gameState.worldState.completedQuestIds
+  );
+  applyActiveQuests(planRows, gameState);
+
+  const nextSubject = getNextIncompleteSubject(gameState);
+  if (nextSubject) {
+    const currentSubjectTarget = gameState.worldState.targetSubject;
+    const targetSubjectStillValid = currentSubjectTarget
+      ? !isSubjectComplete(gameState, currentSubjectTarget)
+      : false;
+    if (!targetSubjectStillValid) {
+      gameState.worldState = normalizeWorldState({
+        ...gameState.worldState,
+        targetSubject: nextSubject
+      });
+    }
   }
 
-  const activeRows = await fetchActiveQuests(client, user.id, todayKey);
-  applyActiveQuests(activeRows, gameState);
+  if (gameState.selectedSubject) {
+    await ensureDailyQuests(
+      client,
+      user.id,
+      todayKey,
+      gameState.selectedSubject,
+      gameState.worldState.completedQuestIds
+    );
+    const activeRows = await fetchActiveQuests(client, user.id, todayKey);
+    applyActiveQuests(activeRows, gameState);
+  }
 
-  if (gameState.lastResetDate === todayKey && !gameState.activeQuests.length && gameState.selectedSubject) {
-    const ensured = await ensureDailyQuests(client, user.id, todayKey, gameState.selectedSubject);
-    applyActiveQuests(ensured, gameState);
+  const completedPlanQuest = claims.find((questId) => {
+    const subject = templates.find((template) => template.slug === questId)?.subject ?? "";
+    return isBuildWeekPlanSubject(subject);
+  });
+  if (gameState.worldState.step === 1 && completedPlanQuest) {
+    gameState.worldState = await persistQuestCompletionRecovery(
+      client,
+      user.id,
+      gameState.worldState,
+      completedPlanQuest
+    );
   }
 
   return true;

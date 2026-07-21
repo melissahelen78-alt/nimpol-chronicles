@@ -104,6 +104,9 @@ display: flex;
 flex-direction: column;
 gap: 10px;
 min-height: 0;
+min-width: 0;
+max-width: 100%;
+box-sizing: border-box;
 background:
   linear-gradient(180deg, var(--sapphire-2) 0%, var(--sapphire-1) 40%, var(--sapphire-0) 100%);
 border-radius: 8px;
@@ -134,6 +137,9 @@ display: flex;
 flex-direction: column;
 gap: 10px;
 min-height: 0;
+min-width: 0;
+max-width: 100%;
+box-sizing: border-box;
 }
 
 .profile-identity {
@@ -350,117 +356,266 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
     .attrs-list {
       flex: 1;
       min-height: 0;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow-x: hidden;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 14px;
-      padding: 2px 12px 2px;
+      gap: 4px;
+      margin-top: 6px;
+      padding: 0 2px 2px;
     }
 
-    .attr-row {
-      display: grid;
-      /* Column 1: Diamond icon (28px). Column 2: The rest of the space (1fr) */
-      grid-template-columns: 14px 1fr; 
-      gap: 0px;
-      align-items: center;
-      position: relative; /* Keeps positioned child elements contained */
-      margin-bottom: 2px;
+    .living-magic-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+      max-width: 100%;
+      width: 100%;
+      box-sizing: border-box;
     }
 
-    .diamond {
-      grid-column: 1;
-      grid-row: 1;
-      z-index: 3;
-      width: 32px;
-      height: 32px;
-      transform: rotate(45deg);
-      position: relative;
-      border: 3px solid var(--gold);
-      box-shadow: 0 0 8px rgba(0,0,0,0.6), inset 0 0 8px rgba(0,0,0,0.6);
-      margin-left: -2px;
-    }
-
-    .diamond--mana       { background: linear-gradient(135deg, #3B3DA1, #9b59b6) !important; color: #9b59b6; }
-    .diamond--intellect  { background: linear-gradient(135deg, #0E78A2, #24E6DD) !important; color: #24E6DD; }
-    .diamond--lore       { background: linear-gradient(135deg, #97510F, #a68a24) !important; color: #a68a24; }
-    .diamond--perception { background: linear-gradient(135deg, #9B0609, #b86214) !important; color: #b86214; }
-    .diamond--charisma   { background: linear-gradient(135deg, #9016A5, #C731C4) !important; color: #C731C4; }
-    .diamond--stamina    { background: linear-gradient(135deg, #146132, #1b8546) !important; color: #146132; }
-
-    
-    /* Create a wrapper wrapper around your text and your track in the HTML, or target them directly if they share the row */
-    .attr-label {
-      grid-column: 2;
-      grid-row: 1;
-      z-index: 2; /* Forces the text to float on top of the bar */
-      font-size: clamp(16px, 1.6vw, 20px);
-      color: #e8f0fa;
-      white-space: nowrap;
-      align-items: center;
-      padding-left: 30px; /* Insets the text slightly from the edge of the bar */
-      pointer-events: none; /* Allows clicks to pass through the text if needed */
-      font-weight: bold;
+    .living-magic-title {
+      margin: 0 0 2px;
+      padding: 0;
+      font-family: var(--readable);
+      font-size: clamp(12px, 1.15vw, 14px);
+      font-weight: 700;
+      color: var(--gold);
+      line-height: 1.15;
+      text-align: center;
+      overflow-wrap: anywhere;
       text-shadow:
         -1px -1px 0 #000,
         1px -1px 0 #000,
         -1px 1px 0 #000,
-        1px 1px 0 #000,
-        0px 2px 4px rgba(0,0,0,0.8);
+        1px 1px 0 #000;
     }
 
-    .attr-bar-track {
-      grid-column: 2;
-      grid-row: 1;
-      z-index: 1;
-      height: 40px;
-      background: #0a1830;
-      border: 3px solid var(--gold);
-      border-radius: 14px;
-      overflow: hidden;
+    .living-magic-mana {
+      border: 1px solid rgba(155, 89, 182, 0.4);
+      border-radius: 8px;
+      padding: 4px 4px 3px;
+      background: rgba(59, 61, 161, 0.16);
+      box-shadow:
+        0 0 8px rgba(120, 90, 220, 0.22),
+        inset 0 0 5px rgba(155, 89, 182, 0.08);
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    .living-magic-growth {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    .living-magic-growth-title {
+      margin: 2px 0 1px;
+      padding: 0;
+      font-family: var(--readable);
+      font-size: clamp(11px, 1.05vw, 13px);
+      font-weight: 700;
+      color: rgba(232, 197, 71, 0.92);
+      line-height: 1.15;
+      text-align: center;
+      overflow-wrap: anywhere;
+      text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000;
+    }
+
+    .attr-row {
+      display: grid;
+      grid-template-columns: 22px minmax(0, 1fr);
+      gap: 4px;
+      align-items: start;
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 2px;
+    }
+
+    .attr-row-icon {
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .attr-row-content {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+      max-width: 100%;
+    }
+
+    .attr-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 4px;
+      align-items: baseline;
+      min-width: 0;
+      line-height: 1.15;
+    }
+
+    .attr-name {
+      font-family: var(--readable);
+      font-size: clamp(12px, 1.15vw, 14px);
+      font-weight: 700;
+      color: #e8f0fa;
+      line-height: 1.15;
+      overflow-wrap: anywhere;
+      text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000;
+    }
+
+    .attr-level {
+      font-family: var(--readable);
+      font-size: clamp(11px, 1.05vw, 13px);
+      font-weight: 700;
+      color: rgba(232, 240, 250, 0.95);
+      white-space: nowrap;
+      flex-shrink: 0;
+      line-height: 1.15;
+      text-shadow:
+        -1px -1px 0 #000,
+        1px -1px 0 #000,
+        -1px 1px 0 #000,
+        1px 1px 0 #000;
+    }
+
+    .diamond {
+      width: 16px;
+      height: 16px;
+      transform: rotate(45deg);
+      border: 1px solid rgba(232, 197, 71, 0.55);
+      box-shadow: 0 0 4px rgba(0, 0, 0, 0.45), inset 0 0 4px rgba(0, 0, 0, 0.4);
+    }
+
+    .attr-row--mana .diamond {
+      border-color: rgba(180, 140, 255, 0.7);
+      box-shadow:
+        0 0 6px rgba(155, 89, 182, 0.4),
+        inset 0 0 4px rgba(59, 61, 161, 0.45);
+    }
+
+    .diamond--mana       { background: linear-gradient(135deg, #3B3DA1, #9b59b6) !important; color: #9b59b6; }
+    .diamond--intellect,
+    .diamond--knowledge  { background: linear-gradient(135deg, #0E78A2, #24E6DD) !important; color: #24E6DD; }
+    .diamond--lore,
+    .diamond--creativity { background: linear-gradient(135deg, #97510F, #a68a24) !important; color: #a68a24; }
+    .diamond--perception { background: linear-gradient(135deg, #9B0609, #b86214) !important; color: #b86214; }
+    .diamond--charisma,
+    .diamond--resolve    { background: linear-gradient(135deg, #9016A5, #C731C4) !important; color: #C731C4; }
+    .diamond--stamina    { background: linear-gradient(135deg, #146132, #1b8546) !important; color: #146132; }
+
+    .attr-progress {
       position: relative;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      height: 18px;
+      background: #0a1830;
+      border: 1px solid rgba(232, 197, 71, 0.35);
+      border-radius: 7px;
+      overflow: hidden;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+      box-sizing: border-box;
     }
 
-    .attr-bar-track::after {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      border-radius: 14px;
-      z-index: 4;
-      pointer-events: none;
-      box-shadow: inset 0 4px 6px rgba(0, 0, 0, 0.75);
+    .attr-row--mana .attr-progress {
+      border-color: rgba(155, 89, 182, 0.45);
+      box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.45),
+        0 0 4px rgba(120, 90, 220, 0.18);
     }
 
-    .attr-bar-fill {
+    .attr-progress-fill {
       height: 100%;
-      border-radius: 10px;
-      box-shadow: 0 0 12px currentColor;
+      max-width: 100%;
+      border-radius: 6px;
+      box-shadow: 0 0 6px currentColor;
       transition: width 0.08s linear;
       position: relative;
       background-size: 100% 100%;
     }
 
-    .attr-bar-fill::after {
+    .attr-progress-fill::after {
       content: '';
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
-      z-index: 3;
+      z-index: 2;
       pointer-events: none;
-      border-radius: 14px;
+      border-radius: 6px;
       mix-blend-mode: overlay;
       background-image: linear-gradient(
         to bottom,
-        rgba(255, 255, 255, 0.6) 0%,
+        rgba(255, 255, 255, 0.45) 0%,
         rgba(255, 255, 255, 0) 50%,
-        rgba(0, 0, 0, 0.4) 100%
+        rgba(0, 0, 0, 0.3) 100%
       );
     }
 
+    .attr-progress-percent {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--readable);
+      font-size: clamp(10px, 0.95vw, 11px);
+      font-weight: 700;
+      color: #f0f4fa;
+      line-height: 1;
+      pointer-events: none;
+      text-shadow:
+        0 0 3px rgba(0, 0, 0, 0.95),
+        0 1px 2px rgba(0, 0, 0, 0.95),
+        -1px -1px 0 rgba(0, 0, 0, 0.85),
+        1px -1px 0 rgba(0, 0, 0, 0.85);
+    }
+
+    .attr-inscription {
+      margin: 0;
+      font-family: var(--readable);
+      font-size: clamp(10px, 1vw, 12px);
+      line-height: 1.25;
+      font-style: italic;
+      color: rgba(232, 240, 250, 0.82);
+      overflow-wrap: anywhere;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    }
+
+    .attr-row--mana .attr-inscription {
+      color: rgba(220, 210, 255, 0.88);
+    }
+
     .bar-mana       { background: linear-gradient(90deg, #3B3DA1, #9b59b6) !important; color: #9b59b6; }
-    .bar-intellect  { background: linear-gradient(90deg, #0E78A2, #24E6DD) !important; color: #24E6DD; }
-    .bar-lore       { background: linear-gradient(90deg, #97510F, #a68a24) !important; color: #a68a24; }
+    .bar-intellect,
+    .bar-knowledge  { background: linear-gradient(90deg, #0E78A2, #24E6DD) !important; color: #24E6DD; }
+    .bar-lore,
+    .bar-creativity { background: linear-gradient(90deg, #97510F, #a68a24) !important; color: #a68a24; }
     .bar-perception { background: linear-gradient(90deg, #9B0609, #b86214) !important; color: #944d10; }
-    .bar-charisma   { background: linear-gradient(90deg, #9016A5, #C731C4) !important; color: #C731C4; }
+    .bar-charisma,
+    .bar-resolve    { background: linear-gradient(90deg, #9016A5, #C731C4) !important; color: #C731C4; }
     .bar-stamina    { background: linear-gradient(90deg, #146132, #1b8546) !important; color: #146132; }
 
     /* ═══ COLUMN 2 — AMETHYST ADVENTURE HUB (mirrors col-profile aesthetic) ═══ */
@@ -518,6 +673,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       gap: 10px;
       min-height: 0;
       margin: 0 18px;
+      overflow-y: auto;
     }
 
     /* Dialogue panel — matches .profile-identity + .name-plate */
@@ -647,46 +803,6 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
     }
 
     .btn-emerald:active {
-      transform: translateY(3px);
-      box-shadow:
-        0 1px 0 #071224,
-        0 2px 4px rgba(0, 0, 0, 0.6),
-        inset 0 2px 5px rgba(0, 0, 0, 0.5);
-    }
-
-    .btn-skip {
-      display: block;
-      width: 100%;
-      max-width: 320px;
-      margin: 0 auto;
-      min-height: 48px;
-      padding: 0 20px;
-      cursor: pointer;
-      font-family: var(--readable);
-      font-weight: 800;
-      font-size: clamp(14px, 1.4vw, 17px);
-      letter-spacing: 0.5px;
-      color: #e8f0fa;
-      text-shadow: 0 2px 3px #000000;
-      background: linear-gradient(to bottom, #4a5364 0%, #252b38 100%);
-      border: 3px solid var(--gold);
-      border-top-color: var(--gold-light);
-      border-bottom-color: var(--gold-dark);
-      border-radius: 6px;
-      box-shadow:
-        0 4px 0 #071224,
-        0 6px 10px rgba(0, 0, 0, 0.5),
-        inset 0 1px 1px rgba(255, 255, 255, 0.3);
-      transition: transform 0.1s ease, box-shadow 0.1s ease;
-    }
-
-    .btn-skip:hover {
-      background: #4a5364;
-      border-color: #d1b45c;
-      border-top-color: #fff099;
-    }
-
-    .btn-skip:active {
       transform: translateY(3px);
       box-shadow:
         0 1px 0 #071224,
@@ -1038,6 +1154,31 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       box-shadow: inset 0 0 0 3px var(--gold);
     }
 
+    .wheel-result {
+      text-align: center;
+      margin: 0 8px 12px;
+      padding: 10px 12px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 2px solid rgba(232, 197, 71, 0.45);
+      border-radius: 6px;
+    }
+
+    .wheel-result-title {
+      font-family: var(--readable);
+      font-weight: 800;
+      font-size: clamp(15px, 1.4vw, 18px);
+      color: var(--gold-light);
+      margin: 0 0 6px;
+    }
+
+    .wheel-result-desc {
+      font-family: var(--readable);
+      font-size: clamp(13px, 1.2vw, 16px);
+      color: #e8f0fa;
+      margin: 0;
+      line-height: 1.45;
+    }
+
     .modal-actions {
       display: flex;
       gap: 10px;
@@ -1068,6 +1209,51 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       background: linear-gradient(180deg, #ffe566, #c9a020);
       border-bottom-color: #8a6910;
       box-shadow: 0 4px 0 #8a6910;
+    }
+
+    #rewardOverlay.open .modal-gold {
+      animation: reward-fade-in 220ms ease-out;
+    }
+
+    .reward-total {
+      margin: 8px 0 14px;
+      text-align: center;
+      color: var(--gold-light);
+      font-family: var(--readable);
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .reward-list {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .reward-row {
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 229, 102, 0.45);
+      border-radius: 6px;
+      background: rgba(17, 12, 37, 0.72);
+      color: #f5f1ff;
+      font-family: var(--readable);
+    }
+
+    .reward-row--level-up {
+      border-color: var(--gold-light);
+      box-shadow: 0 0 12px rgba(255, 229, 102, 0.35);
+    }
+
+    .reward-level-up {
+      display: block;
+      margin-top: 4px;
+      color: var(--gold-light);
+      font-weight: 700;
+    }
+
+    @keyframes reward-fade-in {
+      from { opacity: 0; transform: translateY(8px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
     }
 
     .toast {
@@ -1423,8 +1609,6 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
           </div>
         </div>
         
-        <div class="xp-label" style="margin-top: 16px; margin-bottom: 8px;">Attributes</div>
-        
         <div class="attrs-list" id="attrList"></div>
 
         <div class="auth-status" id="authStatus" hidden>
@@ -1450,8 +1634,6 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
         <div class="action-row" id="interaction-buttons"></div>
 
-        <button class="btn-skip" id="skipInteractionBtn" type="button">Skip Interaction</button>
-
         <div class="quest-drawer" id="questDrawer">
           <div class="quest-mini-grid" id="questList"></div>
         </div>
@@ -1465,7 +1647,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
               </p>
               <button class="speak-btn speak-btn--corner" data-speak-from="inlineKnowledgeText" type="button" aria-label="Read insight aloud">🔊</button>
             </div>
-            <button class="btn-cyan" id="watchTransmissionBtn" type="button">WATCH TRANSMISSION</button>
+            <button class="btn-cyan" id="watchTransmissionBtn" type="button">EXPLORE THIS WONDER</button>
           </div>
         </section>
 
@@ -1482,6 +1664,10 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       <div class="wheel-wrap">
         <div class="wheel-pointer" aria-hidden="true"></div>
         <canvas id="wheelCanvas" width="360" height="360"></canvas>
+      </div>
+      <div class="wheel-result" id="wheelResult" hidden>
+        <p class="wheel-result-title" id="wheelResultTitle"></p>
+        <p class="wheel-result-desc" id="wheelResultDesc"></p>
       </div>
       <div class="modal-actions">
         <button class="modal-btn modal-btn--gold" id="spinAgainBtn" type="button">Spin Again</button>
@@ -1543,26 +1729,48 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
     </div>
   </div>
 
+  <!-- Quest Reward Modal -->
+  <div class="overlay" id="rewardOverlay" aria-hidden="true">
+    <div class="modal-gold" role="dialog" aria-modal="true" aria-labelledby="rewardTitle">
+      <h3 class="modal-title" id="rewardTitle">QUEST COMPLETE</h3>
+      <p class="reward-total" id="rewardTotal"></p>
+      <div class="reward-list" id="rewardList"></div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn--gold" id="continueRewardBtn" type="button">Continue</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script type="module">
     import { supabase } from "./supabaseClient.js";
-    import { hydratePlayerProfile } from "./playerProfile.js";
+    import {
+      applyProgressionSnapshot,
+      hydratePlayerProfile,
+      renderLivingMagicAttributesHTML
+    } from "./playerProfile.js";
     import {
       hydrateQuestState,
       syncQuestState,
-      recordQuestClaim,
+      claimQuestAndAwardProgression,
       ensureDailyQuests,
+      ensureBuildWeekDailyPlan,
       startQuestTimer,
       markQuestReady,
       verifyParentPin,
       applyActiveQuests,
       fetchActiveQuests,
       isValidSubjectSlug,
-      buildSubjectsFromTemplates
+      buildSubjectsFromTemplates,
+      persistWorldState,
+      getNextIncompleteQuest,
+      getQuestTarget,
+      getNextIncompleteSubject,
+      getTargetSubject
     } from "./questSync.js";
     import { createAuthController } from "./authPanel.js";
-    import { hydrateDiscoveryContent, recordTransmissionWatch } from "./discoveryContent.js";
+    import { hydrateDiscoveryContent, hydrateScrollOfKnowledge, recordTransmissionWatch } from "./discoveryContent.js";
     import { createStoryEngine, validateStoryTurn } from "./storyEngine.js";
     import {
       hydrateInventory,
@@ -1575,21 +1783,21 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
     window.__hydrateProfile = async (config, gameState, session = null) => {
       try {
-        const row = await hydratePlayerProfile(supabase, config, gameState, session);
-        if (row) {
+        const result = await hydratePlayerProfile(supabase, config, gameState, session);
+        if (result) {
           console.info(
             "Profile synced from Supabase:",
-            row.player_name,
+            result.profile.player_name,
             "·",
-            row.rank_ribbon
+            result.progression.rank.name
           );
         } else {
           console.warn("Profile sync skipped — no session or profile row.");
         }
-        return row;
+        return result;
       } catch (err) {
         console.warn("Supabase profile load failed:", err);
-        return null;
+        throw err;
       }
     };
 
@@ -1611,31 +1819,56 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       }
     };
 
-    window.__recordQuestClaim = async (questId, rewardXp, newXpTotal, claimDate, activeQuestId = null) => {
+    window.__claimQuestAndAwardProgression = async (activeQuestId, verificationInput = null) => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return false;
+      if (!session?.user) throw new Error("Not signed in");
 
       try {
-        await recordQuestClaim(
+        return await claimQuestAndAwardProgression(
           supabase,
-          session.user.id,
-          questId,
-          rewardXp,
-          claimDate,
-          newXpTotal,
-          activeQuestId
+          activeQuestId,
+          verificationInput
         );
-        return true;
       } catch (err) {
         console.warn("Supabase claim sync failed:", err);
         throw err;
       }
     };
 
+    window.__applyProgressionSnapshot = (snapshot, config, gameState) => {
+      applyProgressionSnapshot(snapshot, config, gameState);
+    };
+
+    window.__renderLivingMagicAttributesHTML = renderLivingMagicAttributesHTML;
+
+    window.__getNextIncompleteQuest = (gameState) => getNextIncompleteQuest(gameState);
+    window.__getQuestTarget = (gameState) => getQuestTarget(gameState);
+    window.__getNextIncompleteSubject = (gameState) => getNextIncompleteSubject(gameState);
+    window.__getTargetSubject = (gameState) => getTargetSubject(gameState);
+
+    window.__ensureBuildWeekDailyPlan = async (gameState, todayKey) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return [];
+      const rows = await ensureBuildWeekDailyPlan(
+        supabase,
+        session.user.id,
+        todayKey,
+        gameState.worldState?.completedQuestIds ?? []
+      );
+      applyActiveQuests(rows, gameState);
+      return rows;
+    };
+
     window.__ensureDailyQuests = async (gameState, todayKey, subject) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return [];
-      const rows = await ensureDailyQuests(supabase, session.user.id, todayKey, subject);
+      const rows = await ensureDailyQuests(
+        supabase,
+        session.user.id,
+        todayKey,
+        subject,
+        gameState.worldState?.completedQuestIds ?? []
+      );
       applyActiveQuests(rows, gameState);
       return rows;
     };
@@ -1722,11 +1955,12 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         }
       }
 
-      await Promise.all([
-        window.__hydrateProfile(config, gameState, session).catch(err => {
+      await window.__hydrateProfile(config, gameState, session).catch(err => {
           console.error("Profile refresh failed:", err);
           return null;
-        }),
+        });
+
+      await Promise.all([
         typeof window.__hydrateQuest === "function"
           ? window.__hydrateQuest(gameState, window.__todayKey(), session).catch(err => {
               console.error("Quest refresh failed:", err);
@@ -1756,7 +1990,13 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       } else if (typeof window.__initStoryEngine === "function") {
         window.__initStoryEngine(config, gameState, {
           defaultTurn: window.__validateStoryTurn
-            ? window.__validateStoryTurn(config.defaultStory)
+            ? window.__validateStoryTurn(
+                config.defaultStory,
+                new Set(
+                  gameState.worldState?.unlockedSubjects ??
+                    [config.buildWeek.startingSubjectSlug]
+                )
+              )
             : config.defaultStory,
           saveState: window.__saveState,
           setSubject: window.__setSubject,
@@ -1771,15 +2011,24 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
     };
 
     window.__initStoryEngine = async (config, gameState, callbacks) => {
-      try {
-        const engine = createStoryEngine(supabase, config, gameState, callbacks);
-        await engine.bootstrap();
-        window.__storyEngine = engine;
-        return engine;
-      } catch (err) {
-        console.warn("Story engine init failed:", err);
-        return null;
+      if (window.__storyEngineBootstrapPromise) {
+        return window.__storyEngineBootstrapPromise;
       }
+
+      window.__storyEngineBootstrapPromise = (async () => {
+        try {
+          const engine = createStoryEngine(supabase, config, gameState, callbacks);
+          await engine.bootstrap();
+          window.__storyEngine = engine;
+          return engine;
+        } catch (err) {
+          window.__storyEngineBootstrapPromise = null;
+          console.warn("Story engine init failed:", err);
+          return null;
+        }
+      })();
+
+      return window.__storyEngineBootstrapPromise;
     };
 
     window.__recordTransmissionWatch = (session = null) => recordTransmissionWatch(supabase, session);
@@ -1809,6 +2058,8 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       },
       async onSignedOut() {
         window.__dashboardReady = false;
+        window.__storyEngine = null;
+        window.__storyEngineBootstrapPromise = null;
       }
     }).bootstrap().catch((err) => {
       console.warn("Auth bootstrap failed:", err);
@@ -1821,22 +2072,30 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
   <script>
     const CONFIG = {
-      player: { name: "NIMPOL", rank: "Wanderer", xp: 1448, xpToNextRank: 2000 },
+      // Build Week demo: fixed Math quests feed one narrowly scoped staged story.
+      buildWeek: {
+        subjectOrder: ["brain", "math", "reading"],
+        mathQuestSlugs: ["math-ba-online", "math-ba-workbook", "math-ba-puzzle"],
+        destinationLocationSlug: "starlit-library",
+        destinationLocationLabel: "Starlit Library",
+        startingSubjectSlug: "brain",
+        destinationSubjectSlug: "reading",
+        destinationSubjectLabel: "Reading"
+      },
+      player: { name: "NIMPOL", rank: "Wanderer", xp: 0, xpToNextRank: null },
       attributes: [
-        { id: "mana",       label: "Mana",       current: 62, max: 100, diamond: "mana",       barClass: "bar-mana" },
-        { id: "intellect",  label: "Intellect",  current: 88, max: 100, diamond: "intellect",  barClass: "bar-intellect" },
-        { id: "lore",       label: "Lore",       current: 30, max: 100, diamond: "lore",       barClass: "bar-lore" },
-        { id: "perception", label: "Perception", current: 71, max: 100, diamond: "perception", barClass: "bar-perception" },
-        { id: "charisma",   label: "Charisma",   current: 45, max: 100, diamond: "charisma",   barClass: "bar-charisma" },
-        { id: "stamina",    label: "Stamina",    current: 50, max: 100, diamond: "stamina",    barClass: "bar-stamina" }
+        { id: "mana", label: "Mana", current: 0, max: 1, level: 1, progressText: "", diamond: "mana", barClass: "bar-mana", isMana: true, sortOrder: 1, worldInscription: "" },
+        { id: "knowledge", label: "Knowledge", current: 0, max: 1, level: 1, progressText: "", diamond: "intellect", barClass: "bar-intellect", isMana: false, sortOrder: 2, worldInscription: "" },
+        { id: "perception", label: "Perception", current: 0, max: 1, level: 1, progressText: "", diamond: "perception", barClass: "bar-perception", isMana: false, sortOrder: 3, worldInscription: "" },
+        { id: "creativity", label: "Creativity", current: 0, max: 1, level: 1, progressText: "", diamond: "lore", barClass: "bar-lore", isMana: false, sortOrder: 4, worldInscription: "" },
+        { id: "stamina", label: "Stamina", current: 0, max: 1, level: 1, progressText: "", diamond: "stamina", barClass: "bar-stamina", isMana: false, sortOrder: 5, worldInscription: "" },
+        { id: "resolve", label: "Resolve", current: 0, max: 1, level: 1, progressText: "", diamond: "charisma", barClass: "bar-charisma", isMana: false, sortOrder: 6, worldInscription: "" }
       ],
       defaultInsight: "Today's Insight: Granite is an igneous rock formed by cooling magma underground; it is incredibly durable and forms the core of major mountain ranges.",
       defaultStory: {
-        storyText: "Good morning, Nimpol! Your focus crystal hums softly. How shall we begin today's chronicle?",
+        storyText: "Good morning, Nimpol! Your focus crystal hums softly beside the Scroll of Knowledge. Nutty says today's Brain Boost can sharpen your mind before the path ahead.",
         choices: [
-          { id: "energetic", label: "Charge Ahead", action: "continue" },
-          { id: "strategize", label: "Plan First", action: "continue" },
-          { id: "scout", label: "Scout Ahead", action: "continue" }
+          { id: "im-ready", label: "I'm Ready!", action: "activate_brain_boost" }
         ]
       },
       questTemplates: {
@@ -1879,7 +2138,22 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       lastResetDate: todayKey(),
       activeQuests: [],
       questTemplates: [],
-      subjects: []
+      subjects: [],
+      // Build Week: mirrors quest_progress.world_state and survives daily resets.
+      worldState: {
+        step: 0,
+        stageTurns: 0,
+        pendingStoryKey: null,
+        scrollComplete: false,
+        targetQuestSlug: null,
+        targetSubject: null,
+        unlockedLocations: [],
+        unlockedSubjects: [CONFIG.buildWeek.startingSubjectSlug],
+        completedQuestIds: [],
+        knowledgeLibraryEligible: false
+      },
+      recentCompletion: null,
+      progression: null
     };
 
     function getDisplayPlayerName() {
@@ -1930,6 +2204,28 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
           state = { ...state, ...p };
         }
       } catch (e) { console.warn("Load failed", e); }
+
+      // Build Week: tolerate older localStorage records created before world state existed.
+      state.worldState = {
+        step: Number(state.worldState?.step) || 0,
+        stageTurns: Math.max(0, Number(state.worldState?.stageTurns) || 0),
+        pendingStoryKey: state.worldState?.pendingStoryKey ?? null,
+        scrollComplete: Boolean(state.worldState?.scrollComplete),
+        targetQuestSlug: state.worldState?.targetQuestSlug ?? null,
+        targetSubject: state.worldState?.targetSubject ?? null,
+        unlockedLocations: Array.isArray(state.worldState?.unlockedLocations)
+          ? state.worldState.unlockedLocations
+          : [],
+        unlockedSubjects: Array.isArray(state.worldState?.unlockedSubjects)
+          ? state.worldState.unlockedSubjects
+          : [CONFIG.buildWeek.startingSubjectSlug],
+        completedQuestIds: Array.isArray(state.worldState?.completedQuestIds)
+          ? state.worldState.completedQuestIds
+          : [],
+        knowledgeLibraryEligible: Boolean(state.worldState?.knowledgeLibraryEligible)
+      };
+      // Progression is always rehydrated from the server for the active session.
+      state.progression = null;
 
       if (state.lastResetDate !== todayKey()) {
         state.claimedToday = [];
@@ -2050,7 +2346,9 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
     }
 
     function mapTemplateToCard(t) {
-      const claimed = state.claimedToday.includes(t.slug);
+      const claimed =
+        state.claimedToday.includes(t.slug) ||
+        state.worldState.completedQuestIds.includes(t.slug);
       return {
         id: t.slug,
         subject: t.subject,
@@ -2073,21 +2371,42 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       return !!CONFIG.questTemplates[id];
     }
 
+    // Build Week: subjects keep their existing identity; this only gates picker access.
+    function isSubjectUnlocked(id) {
+      return state.worldState.unlockedSubjects.includes(id);
+    }
+
+    function isQuestPermanentlyCompleted(id) {
+      return state.worldState.completedQuestIds.includes(id);
+    }
+
+    // Build Week: story progresses by subject stage; drawer shows all assigned
+    // quests for the current targetSubject as player choices.
+    function getCurrentTargetSubject() {
+      return typeof window.__getTargetSubject === "function"
+        ? window.__getTargetSubject(state)
+        : state.worldState?.targetSubject ?? null;
+    }
+
+    function shouldShowQuestCards(id) {
+      if (state.worldState?.step !== 1) return false;
+      return getCurrentTargetSubject() === id;
+    }
+
     function getSubjectCards(id) {
-      const active = (state.activeQuests ?? []).filter((q) => q.subject === id);
-      if (active.length) return active.map((q) => syncLocalQuestTimer({ ...q }));
+      if (!shouldShowQuestCards(id)) return [];
 
-      const fromTemplates = (state.questTemplates ?? []).filter((t) => t.subject === id);
-      if (fromTemplates.length) return fromTemplates.map(mapTemplateToCard);
-
-      return (CONFIG.questTemplates[id] || []).map((c) => ({
-        ...c,
-        subject: id,
-        toolName: c.toolName ?? "Quest",
-        verificationType: "instant",
-        status: state.claimedToday.includes(c.id) ? "claimed" : "assigned",
-        activeQuestId: null
-      }));
+      return (state.activeQuests ?? [])
+        .filter(
+          (quest) =>
+            quest.activeQuestId &&
+            quest.subject === id &&
+            quest.status !== "claimed" &&
+            !state.claimedToday.includes(quest.id) &&
+            !isQuestPermanentlyCompleted(quest.id)
+        )
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || String(a.id).localeCompare(String(b.id)))
+        .map((quest) => syncLocalQuestTimer({ ...quest }));
     }
 
     function getQuestById(id) {
@@ -2104,8 +2423,15 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       const catalog = (state.subjects ?? []).map((s) => s.slug);
       const slugs = catalog.length ? catalog : Object.keys(CONFIG.questTemplates);
 
-      return slugs.filter((id) =>
-        getSubjectCards(id).some((c) => c.status !== "claimed" && !state.claimedToday.includes(c.id))
+      return slugs.filter(
+        (id) =>
+          isSubjectUnlocked(id) &&
+          getSubjectCards(id).some(
+            (c) =>
+              c.status !== "claimed" &&
+              !state.claimedToday.includes(c.id) &&
+              !isQuestPermanentlyCompleted(c.id)
+          )
       );
     }
 
@@ -2123,12 +2449,16 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
       grid.innerHTML = subjects
         .map(
-          (s) => `
-        <button class="subject-picker-btn" type="button" data-pick-subject="${s.slug}">
+          (s) => {
+            const unlocked = isSubjectUnlocked(s.slug);
+            return `
+        <button class="subject-picker-btn" type="button" data-pick-subject="${s.slug}"
+          ${unlocked ? "" : 'disabled aria-disabled="true" title="Complete a Math quest to unlock"'}>
           <span class="subject-picker-icon">${s.icon ?? "📚"}</span>
           <span>${s.label ?? s.slug}</span>
         </button>
-      `
+      `;
+          }
         )
         .join("");
     }
@@ -2147,10 +2477,20 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
     }
 
     async function pickSubject(slug) {
+      if (!isSubjectUnlocked(slug)) {
+        showToast("That subject is still locked.");
+        return;
+      }
       closeSubjectPicker();
-      await setSubject(slug, false);
-      document.getElementById("questDrawer")?.classList.add("open");
-      showToast(`Pick a ${slug} quest below!`);
+      if (window.__storyEngine?.enterSubjectPath) {
+        await window.__storyEngine.enterSubjectPath(slug);
+      } else {
+        await setSubject(slug, false);
+      }
+
+      if (shouldShowQuestCards(slug)) {
+        showToast(`Pick a ${slug} quest below!`);
+      }
     }
 
     function buildQuestActionButtons(card) {
@@ -2264,12 +2604,122 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       overlay.setAttribute("aria-hidden", "true");
     }
 
+    let pendingCompletionAck = false;
+
+    function showQuestReward(rewards) {
+      if (!rewards || !Array.isArray(rewards.attributes)) {
+        throw new Error("Quest claim returned no reward summary.");
+      }
+
+      const total = document.getElementById("rewardTotal");
+      const list = document.getElementById("rewardList");
+      total.textContent = `+${formatNumber(rewards.total_xp_gained)} Total XP`;
+      list.replaceChildren();
+
+      rewards.attributes.forEach((reward) => {
+        const row = document.createElement("div");
+        row.className = reward.level_up
+          ? "reward-row reward-row--level-up"
+          : "reward-row";
+
+        const gain = document.createElement("span");
+        gain.textContent = `${reward.display_name}: +${formatNumber(reward.xp_gained)} XP`;
+        row.appendChild(gain);
+
+        if (reward.level_up) {
+          const levelUp = document.createElement("span");
+          levelUp.className = "reward-level-up";
+          levelUp.textContent = `Level Up! Level ${reward.new_level} Reached`;
+          row.appendChild(levelUp);
+        }
+
+        list.appendChild(row);
+      });
+
+      const overlay = document.getElementById("rewardOverlay");
+      const continueBtn = document.getElementById("continueRewardBtn");
+      continueBtn.disabled = false;
+      continueBtn.textContent = "Continue";
+      overlay.classList.add("open");
+      overlay.setAttribute("aria-hidden", "false");
+      continueBtn.focus();
+    }
+
+    async function closeQuestReward() {
+      console.info("[Completion trace] closeQuestReward:start", {
+        pendingCompletionAck,
+        step: state.worldState?.step ?? 0,
+        stageTurns: state.worldState?.stageTurns ?? 0,
+        pendingStoryKey: state.worldState?.pendingStoryKey ?? null
+      });
+
+      const overlay = document.getElementById("rewardOverlay");
+      const continueBtn = document.getElementById("continueRewardBtn");
+      const rewardContinueLabel = "Continue";
+
+      if (!pendingCompletionAck) {
+        if (continueBtn && document.activeElement === continueBtn) {
+          continueBtn.blur();
+        }
+        overlay.classList.remove("open");
+        overlay.setAttribute("aria-hidden", "true");
+        console.info("[Completion trace] closeQuestReward:end", { skipped: true });
+        return;
+      }
+
+      if (continueBtn?.disabled) {
+        return;
+      }
+
+      continueBtn.disabled = true;
+      continueBtn.textContent = "Opening the next chapter…";
+
+      try {
+        if (!window.__storyEngine?.acknowledgeCompletion) {
+          throw new Error("Story engine unavailable for completion acknowledgement.");
+        }
+
+        await window.__storyEngine.acknowledgeCompletion();
+        pendingCompletionAck = false;
+
+        if (document.activeElement === continueBtn) {
+          continueBtn.blur();
+        }
+        overlay.classList.remove("open");
+        overlay.setAttribute("aria-hidden", "true");
+
+        const storyContinueBtn = document.querySelector(
+          '#interaction-buttons button[data-story-choice="continue-after-completion"]'
+        );
+        storyContinueBtn?.focus({ preventScroll: false });
+        storyContinueBtn?.scrollIntoView({ block: "nearest", inline: "nearest" });
+        window.__storyEngine.logCompletionLayout?.();
+
+        console.info("[Completion trace] closeQuestReward:end", {
+          step: state.worldState?.step ?? 0,
+          stageTurns: state.worldState?.stageTurns ?? 0,
+          pendingStoryKey: state.worldState?.pendingStoryKey ?? null,
+          currentRowId: window.__storyEngine?.currentTurnRow?.id ?? null
+        });
+      } catch (err) {
+        console.warn("Completion acknowledgement failed:", err);
+        showToast("Quest claimed! The completion story will retry when you continue.");
+        console.info("[Completion trace] closeQuestReward:end", { error: true });
+      } finally {
+        // Always restore the button's loading state so the next reward modal's
+        // Continue button is clickable (a disabled button emits no click event).
+        continueBtn.disabled = false;
+        continueBtn.textContent = rewardContinueLabel;
+      }
+    }
+
     async function submitPin() {
       if (pinBuffer.length !== 4) return;
       const questId = pendingPinQuestId;
+      const verificationInput = pinBuffer;
       const ok = typeof window.__verifyParentPin === "function"
-        ? await window.__verifyParentPin(pinBuffer)
-        : pinBuffer === "1234";
+        ? await window.__verifyParentPin(verificationInput)
+        : verificationInput === "1234";
 
       if (!ok) {
         const err = document.getElementById("pinError");
@@ -2291,7 +2741,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       }
       saveState();
       renderQuestList();
-      await claimReward(questId);
+      await claimReward(questId, verificationInput);
     }
 
     function openInventoryModal() {
@@ -2325,43 +2775,49 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       }
     }
 
-    function updateXPBar(value) {
-      const max = CONFIG.player.xpToNextRank;
-      document.getElementById("xpFill").style.width = `${percent(value, max)}%`;
-      document.getElementById("xpText").textContent = `${formatNumber(value)} / ${formatNumber(max)} XP`;
-      document.getElementById("xpTrack").setAttribute("aria-valuenow", String(value));
-    }
-
-    function animateXP(from, to, duration = 950) {
-      return new Promise(resolve => {
-        animatingXP = true;
-        const start = performance.now();
-        function step(now) {
-          const t = Math.min(1, (now - start) / duration);
-          updateXPBar(Math.round(from + (to - from) * (1 - Math.pow(1 - t, 3))));
-          if (t < 1) requestAnimationFrame(step);
-          else { animatingXP = false; resolve(); }
-        }
-        requestAnimationFrame(step);
-      });
+    function updateXPBar() {
+      const snapshot = state.progression;
+      if (!snapshot?.rank) return;
+      const progress = snapshot.rank.rank_span_xp == null ? 1 : snapshot.rank.progress_xp;
+      const span = snapshot.rank.rank_span_xp ?? 1;
+      document.getElementById("xpFill").style.width = `${percent(progress, span)}%`;
+      document.getElementById("xpText").textContent = snapshot.rank.next_rank_name
+        ? `${formatNumber(snapshot.total_xp)} XP · ${formatNumber(snapshot.rank.xp_to_next_rank)} to ${snapshot.rank.next_rank_name}`
+        : `${formatNumber(snapshot.total_xp)} XP · Max Rank`;
+      document.getElementById("xpTrack").setAttribute("aria-valuemax", String(span));
+      document.getElementById("xpTrack").setAttribute("aria-valuenow", String(progress));
     }
 
     function renderAttributes() {
-      document.getElementById("attrList").innerHTML = CONFIG.attributes.map(a => `
-        <div class="attr-row">
-          <div class="diamond diamond--${a.diamond}" aria-hidden="true"></div>
-          <span class="attr-label">${a.label} ${a.current}/${a.max}</span>
-          <div class="attr-bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="${a.max}" aria-valuenow="${a.current}" aria-label="${a.label}">
-            <div class="attr-bar-fill ${a.barClass}" style="width:${percent(a.current, a.max)}%"></div>
-          </div>
-        </div>
-      `).join("");
+      const attrList = document.getElementById("attrList");
+      if (!attrList) return;
+      if (!state.progression) {
+        attrList.innerHTML = "";
+        return;
+      }
+      const render = window.__renderLivingMagicAttributesHTML;
+      if (typeof render !== "function") {
+        attrList.innerHTML = "";
+        return;
+      }
+      try {
+        attrList.innerHTML = render(CONFIG.attributes, CONFIG.player?.name);
+      } catch (err) {
+        console.warn("Attribute panel render failed:", err);
+        attrList.innerHTML = "";
+      }
     }
 
     function getDefaultStoryTurn() {
       let turn;
       if (typeof window.__validateStoryTurn === "function") {
-        turn = window.__validateStoryTurn(CONFIG.defaultStory);
+        turn = window.__validateStoryTurn(
+          CONFIG.defaultStory,
+          new Set(
+            state.worldState?.unlockedSubjects ??
+              [CONFIG.buildWeek.startingSubjectSlug]
+          )
+        );
       } else {
         turn = { ...CONFIG.defaultStory, choices: [...CONFIG.defaultStory.choices] };
       }
@@ -2379,11 +2835,19 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
       const defaultTurn = getDefaultStoryTurn();
       document.getElementById("dialogueText").textContent = defaultTurn.storyText;
-      renderInteractionChoices(defaultTurn.choices);
+      // Hold choices until storyEngine bootstrap finishes to avoid a flash
+      // of opening buttons that are replaced by the resumed beat.
+      renderInteractionChoices([]);
     }
 
     function renderInteractionChoices(choices) {
       const container = document.getElementById("interaction-buttons");
+      console.info("[Interaction choices render]", {
+        source: "index.html",
+        targetFound: Boolean(container),
+        choiceCount: choices?.length ?? 0,
+        labels: (choices ?? []).map((choice) => choice.label)
+      });
       if (!container) return;
       container.innerHTML = "";
       choices.forEach((choice) => {
@@ -2392,8 +2856,9 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         btn.className = "btn-emerald";
         btn.textContent = choice.label;
         btn.dataset.storyChoice = choice.id;
-        btn.dataset.storyAction = choice.action || "continue";
+        btn.dataset.storyAction = choice.action || "continue_story";
         if (choice.value) btn.dataset.storyValue = choice.value;
+        if (choice.target) btn.dataset.storyTarget = choice.target;
         container.appendChild(btn);
       });
     }
@@ -2404,7 +2869,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       const drawer = document.getElementById("questDrawer");
       const list = document.getElementById("questList");
 
-      if (!state.selectedSubject) {
+      if (!state.selectedSubject || !shouldShowQuestCards(state.selectedSubject)) {
         drawer.classList.remove("open");
         list.innerHTML = "";
         return;
@@ -2426,8 +2891,8 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
     }
 
     function updateWheelStatus() {
-      document.getElementById("wheelStatus").textContent = state.lastWheelResult
-        ? `${state.lastWheelResult.id === "ai-wildcard" ? "AI Wildcard" : "Wheel"} → ${state.lastWheelResult.label}`
+      document.getElementById("wheelStatus").textContent = lastWheelDemoResult
+        ? lastWheelDemoResult.title
         : "No spin result yet.";
     }
 
@@ -2437,20 +2902,12 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       }
     }
 
-    function skipInteraction() {
-      if (window.__storyEngine?.skipToSubjects) {
-        window.__storyEngine.skipToSubjects();
-      } else {
-        showToast("Choose a subject path to begin your quests.");
-      }
-    }
-
-    async function setSubject(id, fromStory = false) {
-      if (!isKnownSubject(id)) return;
+    async function setSubject(id, fromStory = false, highlightQuestId = null) {
+      if (!isKnownSubject(id) || !isSubjectUnlocked(id)) return;
 
       state.selectedSubject = id;
 
-      if (typeof window.__ensureDailyQuests === "function") {
+      if (shouldShowQuestCards(id) && typeof window.__ensureDailyQuests === "function") {
         try {
           await window.__ensureDailyQuests(state, todayKey(), id);
         } catch (err) {
@@ -2458,8 +2915,27 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         }
       }
 
-      const first = getSubjectCards(id).find((c) => c.status !== "claimed" && !state.claimedToday.includes(c.id));
-      state.highlightedQuestId = first ? first.id : null;
+      // Optional highlight only when a specific card was selected; subject
+      // open shows all assigned choices without forcing one target quest.
+      if (highlightQuestId != null) {
+        const match = (state.activeQuests ?? []).find(
+          (quest) =>
+            quest.id === highlightQuestId &&
+            quest.subject === id &&
+            quest.activeQuestId &&
+            quest.status !== "claimed" &&
+            !state.claimedToday.includes(quest.id)
+        );
+        state.highlightedQuestId = match ? match.id : null;
+        if (match) {
+          state.worldState = {
+            ...state.worldState,
+            targetQuestSlug: match.id
+          };
+        }
+      } else {
+        state.highlightedQuestId = null;
+      }
       if (fromStory) state.lastWheelResult = null;
       saveState();
       renderQuestList();
@@ -2469,7 +2945,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
     function openPortal(url) { if (url) window.open(url, "_blank", "noopener,noreferrer"); }
 
-    async function claimReward(questId) {
+    async function claimReward(questId, verificationInput = null) {
       if (animatingXP || state.claimedToday.includes(questId)) return;
       const quest = getQuestById(questId);
       if (!quest || quest.status === "claimed") return;
@@ -2485,77 +2961,155 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         }
       }
 
-      if (quest.verificationType === "parent_code" && quest.status !== "ready") {
+      if (quest.verificationType === "parent_code" && !verificationInput) {
         openPinModal(questId);
         return;
       }
 
-      state.claimedToday.push(questId);
-      if (quest.activeQuestId) {
+      if (!quest.activeQuestId || typeof window.__claimQuestAndAwardProgression !== "function") {
+        showToast("Quest claiming is unavailable.");
+        return;
+      }
+
+      animatingXP = true;
+      let claimResult = null;
+      let claimSucceeded = false;
+      try {
+        claimResult = await window.__claimQuestAndAwardProgression(
+          quest.activeQuestId,
+          verificationInput
+        );
+
+        window.__applyProgressionSnapshot?.(claimResult.progression, CONFIG, state);
+        state.worldState = claimResult.worldState;
+        state.selectedSubject = null;
+
+        if (!state.claimedToday.includes(questId)) {
+          state.claimedToday.push(questId);
+        }
         const idx = (state.activeQuests ?? []).findIndex((q) => q.id === questId);
-        if (idx >= 0) state.activeQuests[idx].status = "claimed";
-      }
-      if (state.highlightedQuestId === questId) state.highlightedQuestId = null;
-      saveState();
-      renderQuestList();
+        if (idx >= 0) {
+          state.activeQuests[idx].status = "claimed";
+          state.activeQuests[idx].claimedAt = new Date().toISOString();
+        }
+        if (state.highlightedQuestId === questId) state.highlightedQuestId = null;
 
-      const from = state.xp;
-      playRewardChime();
-      await animateXP(from, from + quest.reward);
-      state.xp = from + quest.reward;
-      CONFIG.player.xp = state.xp;
-      saveState();
-
-      if (typeof window.__recordQuestClaim === "function") {
+        // Subject-stage progression: claiming any one quest completes that
+        // subject for the story. Resolve the next incomplete subject (not the
+        // next individual quest). Unselected same-subject quests stay assigned.
+        let nextSubject = null;
         try {
-          await window.__recordQuestClaim(
+          nextSubject = window.__getNextIncompleteSubject?.(state) ?? null;
+        } catch (resolveErr) {
+          console.warn("Next subject resolution failed:", resolveErr);
+          showToast("Quest claimed! Resolving your next subject — try again if it doesn't appear.");
+        }
+        state.worldState = {
+          ...state.worldState,
+          targetQuestSlug: null,
+          targetSubject: nextSubject
+        };
+
+        const demoProgressed = claimResult.storyProgressed
+          || String(state.worldState.pendingStoryKey ?? "").startsWith("completion-ack:");
+
+        if (demoProgressed) {
+          state.recentCompletion = {
             questId,
-            quest.reward,
-            state.xp,
-            todayKey(),
-            quest.activeQuestId ?? null
-          );
-        } catch (err) {
-          showToast("Claim saved locally; cloud sync failed.");
+            questTitle: quest.title,
+            subject: quest.subject
+          };
+          pendingCompletionAck = true;
         }
+
+        saveState();
+        claimSucceeded = true;
+      } catch (err) {
+        console.warn("Quest claim failed:", err);
+        showToast(err?.message || "Quest claim failed.");
+        return;
+      } finally {
+        animatingXP = false;
       }
 
-      if (typeof window.__maybeAwardLoot === "function") {
-        try {
-          const item = await window.__maybeAwardLoot("quest");
-          if (item) showToast(`Loot found: ${item.icon ?? "🎁"} ${item.name}!`);
-        } catch (err) {
-          console.warn("Loot award failed:", err);
+      try {
+        renderProfilePanel();
+        renderQuestList();
+        renderSubjectPickerGrid();
+        playRewardChime();
+        showQuestReward(claimResult.rewards);
+
+        updateInlineKnowledge(getKnowledgeFact());
+      } catch (err) {
+        console.warn("Post-claim UI refresh failed:", err);
+        if (claimSucceeded) {
+          showToast("Quest claimed! Refresh if something looks out of date.");
         }
       }
-
-      showToast(`+${quest.reward} XP earned!`);
-      updateInlineKnowledge(getKnowledgeFact());
     }
 
     function getCssColor(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
 
     const WHEEL_COLOR_VARS = ["--wheel-a", "--wheel-b", "--wheel-c", "--wheel-d"];
 
-    function getWheelSegments() {
-      const activeSlugs = getActiveSubjects();
-      const catalog = state.subjects?.length
-        ? state.subjects.filter((s) => activeSlugs.includes(s.slug))
-        : activeSlugs.map((slug, i) => ({
-            slug,
-            label: slug.charAt(0).toUpperCase() + slug.slice(1)
-          }));
-
-      const segs = catalog.map((s, i) => ({
-        id: s.slug,
-        label: s.label ?? s.slug,
-        color: getCssColor(WHEEL_COLOR_VARS[i % WHEEL_COLOR_VARS.length])
-      }));
-
-      if (segs.length) {
-        segs.push({ id: "ai-wildcard", label: "AI Wildcard", color: getCssColor("--wheel-d") });
+    const MYSTERY_WHEEL_DEMO_OUTCOMES = [
+      {
+        id: "wonder-seed",
+        title: "Wonder Seed Found",
+        shortLabel: "Wonder Seed",
+        description: "A tiny seed of possibility has been added to your Scroll of Wonder."
+      },
+      {
+        id: "hidden-trail",
+        title: "Hidden Trail Revealed",
+        shortLabel: "Hidden Trail",
+        description: "A faint trail appears at the edge of the map. It may lead somewhere unexpected."
+      },
+      {
+        id: "crystal-shard",
+        title: "Crystal Shard Discovered",
+        shortLabel: "Crystal Shard",
+        description: "Nutty uncovers a shimmering crystal shard pulsing with quiet energy."
+      },
+      {
+        id: "nutty-surprise",
+        title: "Nutty's Surprise",
+        shortLabel: "Nutty's Surprise",
+        description: "Nutty proudly reveals a curious treasure he had hidden for just this moment."
+      },
+      {
+        id: "lucky-discovery",
+        title: "Lucky Discovery",
+        shortLabel: "Lucky Discovery",
+        description: "The world shifts in your favor, revealing something that was hidden before."
       }
-      return segs;
+    ];
+
+    let lastWheelDemoResult = null;
+
+    function getWheelSegments() {
+      return MYSTERY_WHEEL_DEMO_OUTCOMES.map((outcome, i) => ({
+        id: outcome.id,
+        label: outcome.shortLabel,
+        color: getCssColor(WHEEL_COLOR_VARS[i % WHEEL_COLOR_VARS.length]),
+        outcome
+      }));
+    }
+
+    function showWheelDemoResult(outcome) {
+      const wrap = document.getElementById("wheelResult");
+      const titleEl = document.getElementById("wheelResultTitle");
+      const descEl = document.getElementById("wheelResultDesc");
+      if (titleEl) titleEl.textContent = outcome.title;
+      if (descEl) descEl.textContent = outcome.description;
+      if (wrap) wrap.hidden = false;
+      lastWheelDemoResult = outcome;
+      updateWheelStatus();
+    }
+
+    function clearWheelDemoResult() {
+      const wrap = document.getElementById("wheelResult");
+      if (wrap) wrap.hidden = true;
     }
 
     function setupWheelCanvas() {
@@ -2616,10 +3170,11 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
     function openWheelModal() {
       wheel.segments = getWheelSegments();
       setupWheelCanvas();
+      clearWheelDemoResult();
       const overlay = document.getElementById("wheelOverlay");
       overlay.classList.add("open");
       overlay.setAttribute("aria-hidden", "false");
-      if (wheel.segments.length) spinWheel();
+      spinWheel();
     }
 
     function closeWheelModal() {
@@ -2629,13 +3184,21 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
     function spinWheel() {
       if (wheelAnimating) return;
-      if (!wheel.segments.length) { showToast("All quests done! See you tomorrow."); return; }
+      if (!wheel.segments.length) return;
+
+      const targetIdx = Math.floor(Math.random() * wheel.segments.length);
+      const targetOutcome = wheel.segments[targetIdx].outcome ?? MYSTERY_WHEEL_DEMO_OUTCOMES[targetIdx];
 
       wheelAnimating = true;
       const startRot = wheel.rotation;
-      const endRot = startRot + (7 + Math.random() * 4) * Math.PI * 2 + Math.random() * Math.PI * 2;
-      const duration = 4200, t0 = performance.now();
       const stepAng = (Math.PI * 2) / wheel.segments.length;
+      const norm = targetIdx * stepAng + stepAng / 2;
+      const targetRot = -Math.PI / 2 - norm;
+      const extraSpins = (7 + Math.random() * 4) * Math.PI * 2;
+      let endRot = targetRot + extraSpins;
+      while (endRot <= startRot) endRot += Math.PI * 2;
+
+      const duration = 4200, t0 = performance.now();
       let prevStep = Math.floor(startRot / stepAng);
 
       function animate(now) {
@@ -2647,45 +3210,8 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
         if (t < 1) { requestAnimationFrame(animate); return; }
 
-        const seg = segmentAtPointer(wheel.rotation, wheel.segments);
-        let subj = seg ? seg.id : null;
-        if (subj === "ai-wildcard") {
-          const active = getActiveSubjects();
-          subj = active[Math.floor(Math.random() * active.length)] || null;
-        }
-
-        if (subj) {
-          state.selectedSubject = subj;
-          if (typeof window.__ensureDailyQuests === "function") {
-            window.__ensureDailyQuests(state, todayKey(), subj).then(() => {
-              const first = getSubjectCards(subj).find(c => c.status !== "claimed" && !state.claimedToday.includes(c.id));
-              state.highlightedQuestId = first ? first.id : null;
-              renderQuestList();
-              ensureQuestTimerTick();
-            });
-          } else {
-            const first = getSubjectCards(subj).find(c => c.status !== "claimed" && !state.claimedToday.includes(c.id));
-            state.highlightedQuestId = first ? first.id : null;
-          }
-        }
-
-        state.lastWheelResult = {
-          id: seg ? seg.id : "none",
-          label: subj ? subj.charAt(0).toUpperCase() + subj.slice(1) : "None",
-          timestamp: Date.now()
-        };
-        state.wheelSpins++;
-        state.wheelRotation = wheel.rotation;
-        saveState();
-        renderQuestList();
-        updateWheelStatus();
+        showWheelDemoResult(targetOutcome);
         playVictoryChime();
-        showToast(subj ? `Wheel chose ${subj.toUpperCase()}!` : "Spin complete.");
-        if (typeof window.__maybeAwardLoot === "function") {
-          window.__maybeAwardLoot("wheel").then((item) => {
-            if (item) showToast(`Wheel bonus: ${item.icon ?? "🎁"} ${item.name}!`);
-          });
-        }
         wheelAnimating = false;
       }
       requestAnimationFrame(animate);
@@ -2733,10 +3259,10 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
       window.addEventListener("keydown", handlePinKeyboard);
 
-      document.getElementById("skipInteractionBtn").addEventListener("click", skipInteraction);
       document.getElementById("inventoryBtn").addEventListener("click", openInventoryModal);
       document.getElementById("closeInventoryBtn").addEventListener("click", closeInventoryModal);
       document.getElementById("closePinBtn").addEventListener("click", closePinModal);
+      document.getElementById("continueRewardBtn").addEventListener("click", closeQuestReward);
       document.getElementById("closeSubjectBtn").addEventListener("click", closeSubjectPicker);
       document.getElementById("subjectOverlay").addEventListener("click", (e) => {
         if (e.target.id === "subjectOverlay") closeSubjectPicker();
@@ -2746,6 +3272,9 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       });
       document.getElementById("pinOverlay").addEventListener("click", e => {
         if (e.target.id === "pinOverlay") closePinModal();
+      });
+      document.getElementById("rewardOverlay").addEventListener("click", e => {
+        if (e.target.id === "rewardOverlay") closeQuestReward();
       });
       document.getElementById("watchTransmissionBtn").addEventListener("click", async () => {
         const btn = document.getElementById("watchTransmissionBtn");
@@ -2771,12 +3300,20 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       const playerName = document.getElementById("playerName");
       const playerRank = document.getElementById("playerRank");
       const bannerTitle = document.getElementById("bannerTitle");
+      const xpText = document.getElementById("xpText");
+      const attrList = document.getElementById("attrList");
       if (playerName) playerName.textContent = "…";
       if (playerRank) playerRank.textContent = "…";
       if (bannerTitle) bannerTitle.textContent = "The Chronicles of …";
+      if (xpText) xpText.textContent = "…";
+      if (attrList) attrList.innerHTML = "";
     }
 
     function renderProfilePanel() {
+      if (!state.progression) {
+        showProfileLoading();
+        return;
+      }
       const name = getDisplayPlayerName();
       const rank = CONFIG.player.rank || "Wanderer";
 
@@ -2792,7 +3329,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
       if (avatarImg) avatarImg.alt = name;
 
       renderAttributes();
-      updateXPBar(state.xp);
+      updateXPBar();
     }
 
     function renderDefaults() {
@@ -2828,12 +3365,22 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
         openSubjectPicker,
         showToast,
         fetchInventory: window.__fetchInventory ?? (async () => []),
-        awardItemBySlug: window.__awardItemBySlug ?? (async () => null)
+        awardItemBySlug: window.__awardItemBySlug ?? (async () => null),
+        activateBrainBoost: async () => {
+          document.querySelector(".discovery-section")?.scrollIntoView({
+            behavior: "smooth",
+            block: "nearest"
+          });
+          if (typeof window.__hydrateScrollOfKnowledge === "function") {
+            await window.__hydrateScrollOfKnowledge(CONFIG.defaultInsight);
+          }
+        }
       });
     }
 
     async function launchDashboard(session = null) {
       loadState();
+      state.progression = null;
       showProfileLoading();
 
       try {
@@ -2846,13 +3393,15 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
           }
         }
 
-        const profilePromise =
-          typeof window.__hydrateProfile === "function"
-            ? window.__hydrateProfile(CONFIG, state, session).catch(err => {
-                console.error("Profile hydration failed:", err);
-                return null;
-              })
-            : Promise.resolve(null);
+        if (typeof window.__hydrateProfile === "function") {
+          try {
+            await window.__hydrateProfile(CONFIG, state, session);
+          } catch (err) {
+            console.error("Profile hydration failed:", err);
+            showToast(err?.message || "Progression could not be loaded.");
+          }
+        }
+
         const questPromise =
           typeof window.__hydrateQuest === "function"
             ? window.__hydrateQuest(state, todayKey(), session).catch(err => {
@@ -2875,15 +3424,16 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
               })
             : Promise.resolve([]);
 
-        // Render profile/quests immediately — do not block on story engine (AI can hang)
-        await Promise.all([profilePromise, questPromise, scrollPromise, inventoryPromise]);
+        await Promise.all([questPromise, scrollPromise, inventoryPromise]);
+
+        // Bootstrap story before rendering dialogue so the first visible
+        // beat matches world state and choices are not replaced immediately.
+        if (state.progression) {
+          await initStoryEngine();
+        }
 
         renderDashboard();
         ensureQuestTimerTick();
-
-        initStoryEngine().catch(err => {
-          console.error("Story engine initialization failed:", err);
-        });
       } catch (err) {
         console.error("Dashboard launch failed:", err);
         renderDashboard();
@@ -2906,7 +3456,7 @@ clip-path: polygon(0% 0%, 100% 0%, 100% 60%, 50% 100%, 0% 60%);
 
     loadState();
     renderAttributes();
-    updateXPBar(state.xp);
+    updateXPBar();
     updateInlineKnowledge(CONFIG.defaultInsight);
     renderQuestList();
     updateWheelStatus();
